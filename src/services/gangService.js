@@ -13,6 +13,7 @@ const {
   CHANNEL_PERMS,
   FLOW_PERMS,
   ROLE_COLORS,
+  ROLE_HOIST,
   ROLE_SUFFIX,
   ROLE_KIND,
   GANG_ROLE_COLOR,
@@ -1101,7 +1102,7 @@ async function createGangRoles(guild, name, reason, created) {
     const role = await guild.roles.create({
       name: spec.name,
       colors: { primaryColor: ROLE_COLORS[spec.kind] ?? GANG_ROLE_COLOR },
-      hoist: false,
+      hoist: ROLE_HOIST[spec.kind] === true,
       mentionable: true,
       permissions: [],
       reason,
@@ -1882,7 +1883,7 @@ async function repairGangRoles(guild, current, patch, changes, reason) {
     const role = await guild.roles.create({
       name: spec.name,
       colors: { primaryColor: ROLE_COLORS[spec.kind] ?? GANG_ROLE_COLOR },
-      hoist: false,
+      hoist: ROLE_HOIST[spec.kind] === true,
       mentionable: true,
       permissions: [],
       reason,
@@ -1891,6 +1892,94 @@ async function repairGangRoles(guild, current, patch, changes, reason) {
     patch[spec.key] = role.id;
     changes.push(`Rol ${spec.name} opnieuw aangemaakt.`);
   }
+
+  // Rollen die al bestonden kunnen nog de oude weergave hebben, of iemand heeft het vinkje
+  // met de hand omgezet. Hier rechttrekken, zodat /gangbeheer herstel ook dit dekt.
+  await fixRoleHoist(guild, current, reason, changes);
+}
+
+/**
+ * Zet bij de drie rollen van een gang de weergave-instelling goed: wat in ROLE_HOIST op
+ * true staat komt apart in de ledenlijst, de rest niet.
+ *
+ * Idempotent en stil bij een rol die al goed staat. Mislukt een enkele rol (te hoog in de
+ * lijst, of geen recht), dan wordt dat gemeld en gaat de rest gewoon door: een halve
+ * ledenlijst is beter dan een afgebroken herstel.
+ *
+ * @param {import('discord.js').Guild} guild De server.
+ * @param {object} gang Het GangRecord.
+ * @param {string} reason Auditlog-reden.
+ * @param {string[]} [changes] Lijst met meldingen (wordt ter plekke aangevuld).
+ * @returns {Promise<number>} Aantal rollen dat daadwerkelijk aangepast is.
+ */
+async function fixRoleHoist(guild, gang, reason, changes) {
+  let aangepast = 0;
+  for (const spec of roleSpecs(gang?.name || '')) {
+    const role = resolveRole(guild, gang?.[spec.key]);
+    if (!role) continue;
+
+    const gewenst = ROLE_HOIST[spec.kind] === true;
+    if (Boolean(role.hoist) === gewenst) continue;
+
+    try {
+      await role.setHoist(gewenst, reason);
+      aangepast += 1;
+      if (Array.isArray(changes)) {
+        changes.push(gewenst
+          ? `Rol ${role.name} wordt nu apart in de ledenlijst getoond.`
+          : `Rol ${role.name} wordt niet meer apart in de ledenlijst getoond.`);
+      }
+    } catch (err) {
+      logger.warn(`gangService: weergave van rol ${role.id} zetten mislukt (${err.message}).`);
+      if (Array.isArray(changes)) {
+        changes.push(`De weergave van ${role.name} kon niet aangepast worden: `
+          + `${err.message}. Staat de botrol wel boven deze rol?`);
+      }
+    }
+  }
+  return aangepast;
+}
+
+/**
+ * Zet de weergave-instelling van ALLE gangrollen op de server goed.
+ *
+ * Bedoeld als eenmalige migratie voor servers waar de gangs al bestonden voordat deze
+ * instelling er was, en als reparatie zodra iemand het vinkje met de hand omzet. Doet niets
+ * bij een rol die al goed staat, dus hem twee keer draaien kan geen kwaad.
+ *
+ * @param {import('discord.js').Guild} guild De server.
+ * @returns {Promise<{ok: boolean, aangepast: number, gangs: number, meldingen: string[], error: string|null}>} Resultaat.
+ */
+async function applyRoleHoist(guild) {
+  if (!guild || !guild.id) {
+    return {
+      ok: false, aangepast: 0, gangs: 0, meldingen: [], error: 'Interne fout: er is geen server meegegeven.',
+    };
+  }
+
+  let gangs = [];
+  try {
+    gangs = store.listGangs(guild.id) || [];
+  } catch (err) {
+    return {
+      ok: false,
+      aangepast: 0,
+      gangs: 0,
+      meldingen: [],
+      error: `De gangs konden niet gelezen worden (${err.message}), dus er is niets aangepast.`,
+    };
+  }
+
+  const reason = auditReason('Weergave van de gangrollen in de ledenlijst bijgewerkt');
+  const meldingen = [];
+  let aangepast = 0;
+  for (const gang of gangs) {
+    aangepast += await fixRoleHoist(guild, gang, reason, meldingen);
+  }
+
+  return {
+    ok: true, aangepast, gangs: gangs.length, meldingen, error: null,
+  };
 }
 
 /**
@@ -2875,4 +2964,6 @@ module.exports = {
   // De rollenlijst van de server: per gang een blokje met Boss, Underboss en de gangrol
   // onder elkaar, gangs onderling op aanmaakvolgorde.
   applyRoleOrder,
+  // Zet bij alle gangrollen het vinkje "apart weergeven in de ledenlijst" goed.
+  applyRoleHoist,
 };
