@@ -319,6 +319,42 @@ Serverinstellingen > Rollen (van boven naar beneden)
 > De bot controleert dit zelf bij het opstarten. Zie je in de terminal een regel als
 > *"De botrol staat te laag voor: Rayuza"*, dan is dit precies het probleem.
 
+### Leidingkanalen: alleen voor boss en underboss
+
+Naast de twee registers kun je kanalen aanwijzen waar **alleen de leiding van alle gangs**
+bij mag — een gedeelde bosschat bijvoorbeeld:
+
+```
+/setup leidingkanaal kanaal:#bosschat
+```
+
+Verschil met `#aangenomen` en `#ontslagen`: daar leest de hele gang mee. In een
+leidingkanaal komt de **gangrol er niet in voor**, dus een gewoon gangslid ziet het kanaal
+niet eens staan.
+
+| Wie | Zien en lezen | Typen |
+|---|---|---|
+| `@everyone` en gewone gangleden | **Nee** | **Nee** |
+| Boss en underboss van **elke** gang | Ja | **Ja** |
+| Staff (`/setup staffrol`) | Ja | **Ja**, plus opruimen |
+| Extrarollen (`/setup extrarollen`) | Ja | **Ja** |
+| De bot zelf | Ja | Ja |
+
+Je hoeft dit per kanaal maar één keer te doen: maak je later een nieuwe gang aan, dan
+worden de verse boss- en underbossrol er automatisch aan toegevoegd. Hetzelfde gebeurt bij
+`/gang herstel`.
+
+Wil je een kanaal weer vrijgeven, dan haalt `/setup leidingkanaal kanaal:#bosschat
+actie:verwijderen` de rechtenregels van de bot er ook echt weer af. Let op wat er daarna
+overblijft: het kanaal valt terug op de rechten van zijn categorie, en dat kan betekenen
+dat iedereen er weer in kan.
+
+**Let op bij een categorie:** Discord geeft categorierechten niet live door aan kanalen.
+Een kanaal krijgt de rechten van zijn categorie alleen als je het aanmaakt of als je
+handmatig synchroniseert — en synchroniseren **overschrijft** alle eigen rechten van dat
+kanaal, dus ook wat de bot er net op gezet heeft. Zet een leidingkanaal of een register dus
+nooit "in sync" met zijn categorie.
+
 ### De bot zet de gangrollen zelf op volgorde
 
 Je hoeft de gangrollen niet handmatig te sorteren. De bot ordent ze zelf, zodat elke gang
@@ -527,6 +563,7 @@ Alleen bruikbaar met het serverrecht **Server beheren**. Alle antwoorden zijn ep
 |---|---|---|
 | `/setup kanalen` | `aangenomen` (kanaal), `ontslagen` (kanaal), `logboek` (kanaal) | Koppelt het aannamekanaal, het ontslagkanaal en het staf-logboek. **Doe dit als eerste.** De bot controleert meteen of hij daar genoeg rechten heeft, **zet `#aangenomen` en `#ontslagen` op slot** (alleen leiding, staff, extrarollen en de bot mogen er typen) en geeft een eerder gekoppeld kanaal weer vrij. |
 | `/setup extrarollen` | `rol`*, `actie` (`toevoegen` / `verwijderen`, standaard toevoegen) | Rollen die **alle** gangkanalen mogen zien en er typen, in het oortje mogen praten en in `#aangenomen` en `#ontslagen` mogen posten — bedoeld voor OWC en de wapendealers. Wordt meteen doorgevoerd op alle bestaande gangs, dus `/gang herstel` is niet nodig. Een gangrol of `@everyone` weigert de bot hier. |
+| `/setup leidingkanaal` | `kanaal`*, `actie` (`toevoegen` / `verwijderen`, standaard toevoegen) | Wijst een kanaal aan waar alleen **boss en underboss van elke gang**, staff, de extrarollen en de bot bij kunnen — bijvoorbeeld een gedeelde bosschat. `@everyone` en gewone gangleden zien het niet staan. Nieuwe gangs worden er automatisch aan toegevoegd. `verwijderen` haalt de rechtenregels van de bot er weer af. |
 | `/setup staffrol` | `rol`* | Bepaalt welke rol als staff geldt binnen het gangbeheer (naast het serverrecht *Server beheren*). |
 | `/setup bodemrol` | `rol` (optioneel) | Houdt alle gangrollen altijd **boven** deze rol in de rollenlijst, ook nieuwe. Wordt meteen toegepast op de bestaande gangrollen. Laat `rol` leeg om de ondergrens weer uit te zetten. `@everyone` en gangrollen worden geweigerd. |
 | `/setup gedeelde-categorie` | `categorie`*, `actie`* (`toevoegen` / `verwijderen`), `sync_kinderen` (ja/nee, standaard nee) | Beheert de lijst categorieen waar alle gangs toegang toe krijgen. `sync_kinderen:ja` **overschrijft de permissies van de kanalen in die categorie** - gebruik met beleid. |
@@ -546,16 +583,21 @@ plaatst een bericht met een @-mention; de bot doet de rest.
 
 ### Wie mag er typen in #aangenomen en #ontslagen?
 
-Deze twee kanalen zijn **openbare registers**: iedereen op de server mag ze lezen en
-teruglezen, maar er **iets in zetten** mag alleen wie er iets te melden heeft.
+Deze twee kanalen zijn **registers voor de gangs onderling**: iedereen die in een gang zit
+mag ze lezen en teruglezen, maar er **iets in zetten** mag alleen wie er iets te melden
+heeft. Wie in geen enkele gang zit, ziet de kanalen niet eens staan.
 
-| Wie | Lezen | Typen |
+| Wie | Zien en lezen | Typen |
 |---|---|---|
-| `@everyone` (elk serverlid, ook gewone gangleden) | Ja | **Nee** |
+| `@everyone` (wie geen gangrol, staffrol of extrarol heeft) | **Nee** | **Nee** |
+| Gewone gangleden (de gangrol) | Ja | **Nee** |
 | Boss en underboss van een gang | Ja | **Ja** |
 | Staff (`/setup staffrol`) | Ja | **Ja**, plus foute regels opruimen |
 | Extrarollen (`/setup extrarollen`) | Ja | **Ja** |
 | De bot zelf | Ja | Ja |
+
+Serverbeheerders (het recht **Beheerder**) komen hier sowieso bij: dat recht negeert alle
+kanaalrechten en dat kan Discord niet blokkeren.
 
 **Waarom via de kanaalrechten en niet via de bot?** De bot kan een fout bericht alleen
 *achteraf* weigeren. Het staat dan al in het register, iedereen heeft het gelezen, en gaat

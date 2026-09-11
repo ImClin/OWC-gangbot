@@ -9,6 +9,7 @@ const { ChannelType, PermissionFlagsBits, OverwriteType } = require('discord.js'
 const {
   CHANNEL_BLUEPRINT,
   CATEGORY_PERMS,
+  LEADER_PERMS,
   CHANNEL_PERMS,
   FLOW_PERMS,
   ROLE_COLORS,
@@ -2193,9 +2194,10 @@ const FLOW_CHANNELS = Object.freeze([
   Object.freeze({ key: 'fireChannelId', label: 'ontslagen', optie: 'ontslagen' }),
 ]);
 
-/** Elk permissiebit dat in FLOW_PERMS uitgedeeld of geweigerd wordt. */
+/** Elk permissiebit dat in FLOW_PERMS of LEADER_PERMS uitgedeeld of geweigerd wordt. */
 const ALL_FLOW_BITS = [...new Set(
-  Object.values(FLOW_PERMS).flatMap((bits) => (Array.isArray(bits) ? [...bits] : [])),
+  [...Object.values(FLOW_PERMS), ...Object.values(LEADER_PERMS)]
+    .flatMap((bits) => (Array.isArray(bits) ? [...bits] : [])),
 )];
 
 /**
@@ -2280,6 +2282,10 @@ function buildFlowChannelOverwrites(guild, guildConfig) {
     gangs = [];
   }
   for (const gang of gangs) {
+    // De gangrol eerst: iedereen in de gang mag het register zien en teruglezen. Daarna de
+    // leiding, die op hetzelfde kanaal ook mag typen. Staat iemand in beide (een boss heeft
+    // ook de gangrol), dan tellen de allows gewoon bij elkaar op.
+    push(gang?.roleId, OverwriteType.Role, [...FLOW_PERMS.gangAllow], []);
     for (const roleId of [gang?.bossRoleId, gang?.underbossRoleId]) {
       push(roleId, OverwriteType.Role, [...FLOW_PERMS.leaderAllow], []);
     }
@@ -2296,6 +2302,59 @@ function buildFlowChannelOverwrites(guild, guildConfig) {
   // De bot zelf, als MEMBER-overwrite. Zonder deze regel treft de @everyone-deny ook de bot
   // en kan hij niet meer antwoorden of reageren in het register.
   push(botMemberId(guild), OverwriteType.Member, [...FLOW_PERMS.botAllow], []);
+
+  return [...map.values()].map(normalizeEntry);
+}
+
+/**
+ * Bouwt de gewenste overwrites voor een leidingkanaal: @everyone helemaal dicht (ook
+ * kijken), en alleen boss en underboss van elke gang, de staffrol, de server-brede
+ * extrarollen en de bot zelf erin - die mogen er allemaal ook typen.
+ *
+ * Verschil met buildFlowChannelOverwrites: de gangrol komt hier NIET in voor. Een gewoon
+ * gangslid ziet een leidingkanaal dus niet staan.
+ *
+ * @param {import('discord.js').Guild} guild De server.
+ * @param {{staffRoleId?: string|null, globalRoleIds?: string[]}} guildConfig Serverconfiguratie.
+ * @returns {Array<{id: string, type: number, allow: Array<bigint>, deny: Array<bigint>}>} De overwrites.
+ */
+function buildLeaderChannelOverwrites(guild, guildConfig) {
+  const botPerms = botGuildPermissions(guild);
+  const controleerbaar = rolesCacheUsable(guild);
+  const map = new Map();
+
+  const push = (id, type, allow, deny) => {
+    if (typeof id !== 'string' || !id) return;
+    if (type === OverwriteType.Role && controleerbaar && id !== guild?.roles?.everyone?.id
+      && !resolveRole(guild, id)) return;
+    const entry = map.get(id) || { id, type, allow: [], deny: [] };
+    entry.allow.push(...allowedBits(botPerms, allow));
+    entry.deny.push(...allowedBits(botPerms, deny));
+    map.set(id, entry);
+  };
+
+  push(guild?.roles?.everyone?.id, OverwriteType.Role, [], [...LEADER_PERMS.everyoneDeny]);
+
+  let gangs = [];
+  try {
+    gangs = store.listGangs(guild.id) || [];
+  } catch (err) {
+    logger.warn(`gangService: gangs ophalen voor de leidingkanalen mislukt (${err.message}).`);
+    gangs = [];
+  }
+  for (const gang of gangs) {
+    for (const roleId of [gang?.bossRoleId, gang?.underbossRoleId]) {
+      push(roleId, OverwriteType.Role, [...LEADER_PERMS.leaderAllow], []);
+    }
+  }
+
+  push(guildConfig?.staffRoleId, OverwriteType.Role, [...LEADER_PERMS.staffAllow], []);
+
+  for (const roleId of collectGlobalRoleIds(guild, null, guildConfig)) {
+    push(roleId, OverwriteType.Role, [...LEADER_PERMS.leaderAllow], []);
+  }
+
+  push(botMemberId(guild), OverwriteType.Member, [...LEADER_PERMS.botAllow], []);
 
   return [...map.values()].map(normalizeEntry);
 }
@@ -2395,9 +2454,14 @@ async function removeFlowOverwrites(guild, roleIds, reason) {
 }
 
 /**
- * Zet de schrijfrechten van #aangenomen en #ontslagen goed: iedereen mag ze zien en
- * teruglezen, maar alleen boss en underboss van een gang, staff, de server-brede
+ * Zet de schrijfrechten van #aangenomen, #ontslagen en de leidingkanalen goed: iedereen mag
+ * ze zien en teruglezen, maar alleen boss en underboss van een gang, staff, de server-brede
  * extrarollen en de bot zelf mogen er iets in posten.
+ *
+ * Leidingkanalen (/setup leidingkanaal) krijgen exact dezelfde overwrites als de twee
+ * registers. Het verschil zit alleen in wat de bot met de berichten doet: in een register
+ * leest hij aannames en ontslagen mee, in een leidingkanaal niet - daar regelt hij alleen
+ * wie er mag typen.
  *
  * WAAROM DIT NODIG IS: de bot weigerde een fout bericht pas ACHTERAF, waardoor het bericht
  * al in het register stond en daar bleef staan zodra het opruimen misging (bot offline,
@@ -2456,7 +2520,8 @@ async function applyFlowChannelPermissions(guild) {
     'Schrijfrechten van de aangenomen- en ontslagen-kanalen bijgewerkt: alleen gangleiding,'
     + ' staff en de bot mogen daar posten',
   );
-  const entries = buildFlowChannelOverwrites(guild, guildConfig);
+  const registerEntries = buildFlowChannelOverwrites(guild, guildConfig);
+  const leidingEntries = buildLeaderChannelOverwrites(guild, guildConfig);
   const waarschuwingen = [];
   const ongekoppeld = [];
   const kanalen = [];
@@ -2471,17 +2536,40 @@ async function applyFlowChannelPermissions(guild) {
   const gemist = ALL_FLOW_BITS.filter((bit) => !botHasBit(botPerms, bit)).map(permissionLabel);
   if (gemist.length) {
     waarschuwingen.push(
-      `De bot mist zelf ${gemist.join(', ')}, dus die rechten zijn overgeslagen in #aangenomen en`
-      + ' #ontslagen. Zet ze aan bij Serverinstellingen > Rollen > de rol van de bot en voer'
+      `De bot mist zelf ${gemist.join(', ')}, dus die rechten zijn overgeslagen in de register- en`
+      + ' leidingkanalen. Zet ze aan bij Serverinstellingen > Rollen > de rol van de bot en voer'
       + ' /gang herstel opnieuw uit, anders staat het kanaal niet echt dicht.',
     );
   }
 
-  for (const item of FLOW_CHANNELS) {
-    const channelId = guildConfig[item.key];
+  // De twee registers plus de leidingkanalen uit /setup leidingkanaal. Ze krijgen precies
+  // dezelfde overwrites, dus ze lopen door dezelfde lus.
+  const leidingkanalen = Array.isArray(guildConfig.leaderChannelIds) ? guildConfig.leaderChannelIds : [];
+  const doelen = [
+    ...FLOW_CHANNELS.map((item) => ({
+      id: guildConfig[item.key],
+      label: `${item.label}-kanaal`,
+      hint: `/setup kanalen ${item.optie}: #kanaal`,
+      entries: registerEntries,
+      meldOngekoppeld: true,
+    })),
+    ...leidingkanalen.map((id) => ({
+      id,
+      label: 'leidingkanaal',
+      hint: '/setup leidingkanaal kanaal:#kanaal',
+      entries: leidingEntries,
+      // Een leidingkanaal staat alleen in de lijst als het bewust gekoppeld is, dus
+      // "nog niet ingesteld" bestaat hier niet en hoort ook niet in de checklist.
+      meldOngekoppeld: false,
+    })),
+  ];
+
+  for (const item of doelen) {
+    const channelId = item.id;
     if (typeof channelId !== 'string' || !channelId) {
-      const regel = `Er is nog geen ${item.label}-kanaal ingesteld, dus daar is niets dichtgezet.`
-        + ` Koppel het met /setup kanalen ${item.optie}: #kanaal.`;
+      if (!item.meldOngekoppeld) continue;
+      const regel = `Er is nog geen ${item.label} ingesteld, dus daar is niets dichtgezet.`
+        + ` Koppel het met ${item.hint}.`;
       waarschuwingen.push(regel);
       ongekoppeld.push(regel);
       continue;
@@ -2490,15 +2578,15 @@ async function applyFlowChannelPermissions(guild) {
     const channel = resolveChannel(guild, channelId);
     if (!channel) {
       waarschuwingen.push(
-        `Het ${item.label}-kanaal (id ${channelId}) bestaat niet meer, dus daar is niets`
-        + ` dichtgezet. Koppel het juiste kanaal met /setup kanalen ${item.optie}: #kanaal.`,
+        `Het ${item.label} (id ${channelId}) bestaat niet meer, dus daar is niets`
+        + ` dichtgezet. Koppel het juiste kanaal met ${item.hint}.`,
       );
       continue;
     }
 
     const kanaalNaam = `#${channel.name || item.label}`;
     try {
-      const result = await applyOverwrites(channel, entries, reason);
+      const result = await applyOverwrites(channel, item.entries, reason);
       updated += result.updated;
       if (result.mislukt) {
         // Deels gelukt is hier niet goed genoeg: één geweigerde regel kan het verschil zijn
@@ -2521,7 +2609,7 @@ async function applyFlowChannelPermissions(guild) {
       continue;
     }
 
-    for (const regel of flowStrangerWarnings(guild, channel, entries, kanaalNaam)) {
+    for (const regel of flowStrangerWarnings(guild, channel, item.entries, kanaalNaam)) {
       waarschuwingen.push(regel);
     }
   }
@@ -2538,6 +2626,28 @@ async function applyFlowChannelPermissions(guild) {
   return {
     ok: mislukt === 0, updated, kanalen, waarschuwingen, ongekoppeld, error,
   };
+}
+
+/**
+ * Voegt twee overwrite-lijsten samen tot een lijst waarin elk id een keer voorkomt, met de
+ * allow- en deny-bits van beide. Gebruikt om een kanaal vrij te geven zonder te hoeven
+ * weten of het als register- of als leidingkanaal dichtgezet was.
+ *
+ * @param {...Array<{id: string, type: number, allow: Array<bigint>, deny: Array<bigint>}>} lijsten De lijsten.
+ * @returns {Array<{id: string, type: number, allow: Array<bigint>, deny: Array<bigint>}>} De samengevoegde lijst.
+ */
+function mergeOverwriteEntries(...lijsten) {
+  const map = new Map();
+  for (const lijst of lijsten) {
+    for (const entry of (Array.isArray(lijst) ? lijst : [])) {
+      if (!entry || typeof entry.id !== 'string' || !entry.id) continue;
+      const samen = map.get(entry.id) || { id: entry.id, type: entry.type, allow: [], deny: [] };
+      samen.allow.push(...(entry.allow || []));
+      samen.deny.push(...(entry.deny || []));
+      map.set(entry.id, samen);
+    }
+  }
+  return [...map.values()].map(normalizeEntry);
 }
 
 /**
@@ -2609,11 +2719,17 @@ async function releaseFlowChannel(guild, channelId) {
     };
   }
 
-  // Dezelfde lijst die het kanaal heeft dichtgezet: precies dat draaien we terug.
-  const entries = buildFlowChannelOverwrites(guild, guildConfig);
+  // Dezelfde lijsten die het kanaal dichtgezet kunnen hebben: precies dat draaien we terug.
+  // Register- en leidingkanalen lopen allebei langs deze functie, en welke van de twee het
+  // was weten we hier niet meer, dus we nemen beide sets. Een bit dat er niet op stond
+  // wissen is geen probleem: toResetOptions zet hem op null, oftewel "niet ingesteld".
+  const entries = mergeOverwriteEntries(
+    buildFlowChannelOverwrites(guild, guildConfig),
+    buildLeaderChannelOverwrites(guild, guildConfig),
+  );
   const kanaalNaam = `#${channel.name || id}`;
   const reason = auditReason(
-    `Vergrendeling van ${kanaalNaam} opgeheven: dit kanaal is geen aanname-/ontslagregister meer`,
+    `Vergrendeling van ${kanaalNaam} opgeheven: dit kanaal is geen register- of leidingkanaal meer`,
   );
 
   let verwijderd = 0;

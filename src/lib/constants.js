@@ -243,10 +243,13 @@ const CHANNEL_PERMS = {
 /**
  * Permissieset voor de twee 'flow'-kanalen van de server: #aangenomen en #ontslagen.
  *
- * WAAROM DIT BESTAAT: dit zijn openbare registers. Iedereen moet kunnen ZIEN wie er is
- * aangenomen of ontslagen en de geschiedenis kunnen teruglezen, maar alleen de bosses en
- * underbosses van een gang (plus staff, de server-brede rollen uit globalRoleIds en de bot
- * zelf) mogen er iets IN zetten.
+ * WAAROM DIT BESTAAT: dit zijn registers voor de gangs onderling. Iedereen die in een gang
+ * zit moet kunnen ZIEN wie er is aangenomen of ontslagen en de geschiedenis kunnen
+ * teruglezen, maar alleen de bosses en underbosses van een gang (plus staff, de
+ * server-brede rollen uit globalRoleIds en de bot zelf) mogen er iets IN zetten.
+ *
+ * Buiten de gangs om is het register dicht: @everyone krijgt ook geen kijkrecht. Wie geen
+ * gangrol, staffrol of extrarol heeft, ziet het kanaal dus niet staan.
  *
  * En waarom via Discord-overwrites in plaats van via de bot? De bot kan een fout bericht
  * alleen ACHTERAF weigeren: het bericht staat dan al in het kanaal, wordt door iedereen
@@ -258,16 +261,26 @@ const CHANNEL_PERMS = {
  * omzeilt iemand het kanaal simpelweg door een thread te openen en daarin te typen.
  *
  * De arrays zijn bevroren: kopieer ze (`[...FLOW_PERMS.leaderAllow]`) voordat je ze aanpast.
- * @type {Readonly<Record<'everyoneDeny'|'leaderAllow'|'staffAllow'|'botAllow', ReadonlyArray<bigint>>>}
+ * @type {Readonly<Record<'everyoneDeny'|'gangAllow'|'leaderAllow'|'staffAllow'|'botAllow', ReadonlyArray<bigint>>>}
  */
 const FLOW_PERMS = {
-  // @everyone: kijken en teruglezen mag (dat staat al op serverniveau), typen niet. Ook
-  // geen threads, want een thread is een achterdeur naar hetzelfde kanaal.
+  // @everyone: niets. Het register is er voor de gangs, dus ook het kijkrecht gaat dicht.
+  // De thread-rechten moeten apart genoemd worden: een thread is anders een achterdeur naar
+  // hetzelfde kanaal.
   everyoneDeny: [
+    PermissionFlagsBits.ViewChannel,
     PermissionFlagsBits.SendMessages,
     PermissionFlagsBits.SendMessagesInThreads,
     PermissionFlagsBits.CreatePublicThreads,
     PermissionFlagsBits.CreatePrivateThreads,
+  ],
+
+  // De gangrol van elke gang: meelezen mag, typen niet. Hiermee ziet iedereen die in een
+  // gang zit het hele register, terwijl alleen de leiding er iets in kan zetten. Zonder
+  // deze allow zou de deny op @everyone hierboven ook de gewone leden buitensluiten.
+  gangAllow: [
+    PermissionFlagsBits.ViewChannel,
+    PermissionFlagsBits.ReadMessageHistory,
   ],
 
   // Boss- en underbossrol van elke gang, en de server-brede rollen: die mogen posten.
@@ -297,6 +310,62 @@ const FLOW_PERMS = {
     PermissionFlagsBits.SendMessages,
     PermissionFlagsBits.EmbedLinks,
     PermissionFlagsBits.ReadMessageHistory,
+    PermissionFlagsBits.AddReactions,
+    PermissionFlagsBits.ManageMessages,
+  ],
+};
+
+/**
+ * Permissieset voor een leidingkanaal (/setup leidingkanaal): een server-breed kanaal waar
+ * de leiding van ALLE gangs elkaar spreekt, zoals een gedeelde bosschat.
+ *
+ * Verschil met FLOW_PERMS: daar mag elke gangrol meelezen en alleen de leiding typen. Hier
+ * komt de gangrol er helemaal niet in voor - een gewoon gangslid ziet het kanaal niet eens
+ * staan. Alleen boss, underboss, staff, de extrarollen en de bot zitten erin, en die mogen
+ * er allemaal ook in typen.
+ *
+ * De arrays zijn bevroren: kopieer ze voordat je ze aanpast.
+ * @type {Readonly<Record<'everyoneDeny'|'leaderAllow'|'staffAllow'|'botAllow', ReadonlyArray<bigint>>>}
+ */
+const LEADER_PERMS = {
+  // @everyone: het kanaal bestaat niet voor ze. De schrijfrechten gaan er ook af, zodat een
+  // losse allow op een andere rol nooit per ongeluk typen toestaat aan wie alleen kijkt.
+  everyoneDeny: [
+    PermissionFlagsBits.ViewChannel,
+    PermissionFlagsBits.SendMessages,
+    PermissionFlagsBits.SendMessagesInThreads,
+    PermissionFlagsBits.CreatePublicThreads,
+    PermissionFlagsBits.CreatePrivateThreads,
+  ],
+
+  // Boss en underboss van elke gang, plus de server-brede extrarollen: lezen en typen.
+  leaderAllow: [
+    PermissionFlagsBits.ViewChannel,
+    PermissionFlagsBits.ReadMessageHistory,
+    PermissionFlagsBits.SendMessages,
+    PermissionFlagsBits.AddReactions,
+    PermissionFlagsBits.AttachFiles,
+    PermissionFlagsBits.EmbedLinks,
+    PermissionFlagsBits.UseExternalEmojis,
+  ],
+
+  // Staff kan hier ook opruimen.
+  staffAllow: [
+    PermissionFlagsBits.ViewChannel,
+    PermissionFlagsBits.ReadMessageHistory,
+    PermissionFlagsBits.SendMessages,
+    PermissionFlagsBits.AddReactions,
+    PermissionFlagsBits.AttachFiles,
+    PermissionFlagsBits.EmbedLinks,
+    PermissionFlagsBits.ManageMessages,
+  ],
+
+  // De bot zelf, als member-overwrite: zonder dit treft de @everyone-deny ook hem.
+  botAllow: [
+    PermissionFlagsBits.ViewChannel,
+    PermissionFlagsBits.ReadMessageHistory,
+    PermissionFlagsBits.SendMessages,
+    PermissionFlagsBits.EmbedLinks,
     PermissionFlagsBits.AddReactions,
     PermissionFlagsBits.ManageMessages,
   ],
@@ -369,6 +438,7 @@ module.exports = {
   CATEGORY_PERMS,
   CHANNEL_PERMS,
   FLOW_PERMS,
+  LEADER_PERMS,
   GANG_ROLE_COLOR,
   ROLE_COLORS,
   ROLE_SUFFIX,

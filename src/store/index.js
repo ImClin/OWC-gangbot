@@ -8,6 +8,8 @@ const constants = require('../lib/constants');
  * @typedef {object} GuildConfig
  * @property {string|null} staffRoleId
  * @property {string|null} roleFloorId Gangrollen blijven altijd boven deze rol staan.
+ * @property {string[]} leaderChannelIds Kanalen die net als #aangenomen en #ontslagen op slot
+ *   gaan: iedereen leest mee, alleen de leiding van elke gang mag er typen.
  * @property {string|null} hireChannelId
  * @property {string|null} fireChannelId
  * @property {string|null} logChannelId
@@ -239,6 +241,7 @@ function defaultGuildConfig() {
   return {
     staffRoleId: null,
     roleFloorId: null,
+    leaderChannelIds: [],
     hireChannelId: null,
     fireChannelId: null,
     logChannelId: null,
@@ -310,6 +313,7 @@ function normalizeConfig(raw) {
   const out = { ...defaultGuildConfig(), ...(isPlainObject(raw) ? raw : {}) };
   out.staffRoleId = asId(out.staffRoleId);
   out.roleFloorId = asId(out.roleFloorId);
+  out.leaderChannelIds = uniqueIds(out.leaderChannelIds);
   out.hireChannelId = asId(out.hireChannelId);
   out.fireChannelId = asId(out.fireChannelId);
   out.logChannelId = asId(out.logChannelId);

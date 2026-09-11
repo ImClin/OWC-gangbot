@@ -102,9 +102,20 @@ const FLOW_LOCKED_ALLOW = [
 const FLOW_EXPLANATION = [
   'Alleen **boss** en **underboss** van een gang, de **staffrol**, de **extrarollen** '
     + '(`/setup extrarollen`) en de bot zelf kunnen hier nog typen.',
-  'Alle andere leden zien de kanalen gewoon staan en kunnen de hele geschiedenis '
-    + 'teruglezen — het blijft een openbaar register.',
+  'Iedereen met een **gangrol** ziet de kanalen staan en leest de hele geschiedenis terug, '
+    + 'maar kan er niets in zetten — het blijft een register voor de gangs onderling.',
+  '**@everyone** ziet ze niet meer staan: wie in geen enkele gang zit, komt er niet in.',
   'Threads staan ook dicht, anders typt iemand er simpelweg in een thread omheen.',
+];
+
+/** Wat een leidingkanaal betekent, in gewone taal voor in de antwoorden. */
+const LEADER_EXPLANATION = [
+  'Alleen **boss** en **underboss** van elke gang, de **staffrol**, de **extrarollen** '
+    + '(`/setup extrarollen`) en de bot zelf zien dit kanaal en kunnen er typen.',
+  'Gewone gangleden zien het kanaal **niet staan** — anders dan bij `#aangenomen` en '
+    + '`#ontslagen`, waar de hele gang meeleest.',
+  'Threads staan dicht, anders typt iemand er simpelweg in een thread omheen.',
+  'Serverbeheerders (het recht *Beheerder*) komen overal bij; dat kan Discord niet blokkeren.',
 ];
 
 /** Maximaal aantal registerwaarschuwingen in één veld, en het tekenbudget daarvoor. */
@@ -762,6 +773,128 @@ async function handleStaffrol(interaction) {
     );
   }
   if (notities.length) addField(embed, 'Let op', notities);
+  return respond(interaction, embed);
+}
+
+/* -------------------------------------------------------------------------- */
+/* /setup leidingkanaal                                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Subcommand `leidingkanaal`: een kanaal waar de leiding van ALLE gangs elkaar spreekt.
+ *
+ * @everyone gaat dicht (ook kijken); boss en underboss van elke gang, de staffrol, de
+ * extrarollen en de bot mogen er kijken en typen. Dat gebeurt met Discord-overwrites, dus
+ * het blijft gelden als de bot offline is.
+ *
+ * Nieuwe gangs komen er vanzelf bij: bij `/gang aanmaken` worden de verse boss- en
+ * underbossrol aan alle register- en leidingkanalen toegevoegd.
+ *
+ * @param {import('discord.js').ChatInputCommandInteraction} interaction De interactie.
+ * @returns {Promise<void>}
+ */
+async function handleLeidingkanaal(interaction) {
+  const guild = interaction.guild;
+  const channel = interaction.options.getChannel('kanaal');
+  const actie = interaction.options.getString('actie') || 'toevoegen';
+
+  if (!channel) {
+    return respond(interaction, embeds.errorEmbed(
+      'Geen kanaal gekozen',
+      'Kies een kanaal met de optie `kanaal`.',
+    ));
+  }
+  if (!TEXT_CHANNEL_TYPES.includes(channel.type)) {
+    return respond(interaction, embeds.errorEmbed(
+      'Dit moet een tekstkanaal zijn',
+      'Een leidingkanaal werkt met schrijfrechten op berichten. Kies een gewoon tekstkanaal '
+        + 'of een aankondigingskanaal.',
+    ));
+  }
+
+  const config = readConfig(guild.id);
+  if (!config) return respond(interaction, saveFailedEmbed());
+
+  // De twee registers hebben hun eigen commando en een andere permissieset (daar leest de
+  // hele gang mee). Hetzelfde kanaal in beide lijsten zou die twee tegen elkaar in laten
+  // werken: de laatste die draait wint.
+  if (channel.id === config.hireChannelId || channel.id === config.fireChannelId) {
+    return respond(interaction, embeds.errorEmbed(
+      'Dit is al een registerkanaal',
+      `<#${channel.id}> is gekoppeld met \`/setup kanalen\`. Daar mag de hele gang meelezen; `
+        + 'in een leidingkanaal juist niet. Kies een ander kanaal, of koppel het eerst los.',
+    ));
+  }
+
+  const huidig = Array.isArray(config.leaderChannelIds) ? config.leaderChannelIds : [];
+  const staatErin = huidig.includes(channel.id);
+
+  if (actie === 'verwijderen' && !staatErin) {
+    return respond(interaction, embeds.errorEmbed(
+      'Dit is geen leidingkanaal',
+      `<#${channel.id}> staat niet in de lijst, dus er valt niets weg te halen. `
+        + 'Bekijk de lijst met `/setup toon`.',
+    ));
+  }
+
+  if (!(await deferEphemeral(interaction))) return;
+
+  const nieuw = actie === 'verwijderen'
+    ? huidig.filter((id) => id !== channel.id)
+    : [...huidig, channel.id];
+  if (!writeConfig(guild.id, { leaderChannelIds: nieuw })) {
+    return respond(interaction, saveFailedEmbed());
+  }
+
+  if (actie === 'verwijderen') {
+    // Het slot er ook echt afhalen. Zonder deze stap blijft een kanaal dat geen
+    // leidingkanaal meer is voor iedereen dicht, terwijl niets in de configuratie er nog
+    // naar verwijst - en dan zoekt de beheerder zich rot.
+    let release = null;
+    try {
+      release = await gangService.releaseFlowChannel(guild, channel.id);
+    } catch (err) {
+      logger.error('Kon de vergrendeling van het leidingkanaal niet opheffen.', err);
+    }
+    const losEmbed = release?.ok
+      ? embeds.successEmbed('Leidingkanaal losgekoppeld')
+      : embeds.warningEmbed('Leidingkanaal losgekoppeld, maar let op');
+    addField(losEmbed, 'Kanaal', `<#${channel.id}>`);
+    addField(losEmbed, 'Wat er nu geldt', release?.ok
+      ? [
+        `De rechtenregels die de bot hier zelf had gezet zijn weggehaald (${release.verwijderd || 0}).`,
+        'Het kanaal valt daarmee terug op de rechten van zijn categorie en de serverrollen. '
+          + 'Controleer even of dat is wat je wilt — mogelijk kan iedereen er nu weer in.',
+      ]
+      : [
+        release?.error || 'De vergrendeling kon niet opgeheven worden.',
+        'Haal in Kanaalinstellingen → Rechten de regels voor @everyone en de gangrollen zelf weg.',
+      ]);
+    return respond(interaction, losEmbed);
+  }
+
+  const ontbreekt = missingChannelPermissions(guild, channel, FLOW_CHANNEL_PERMS);
+  const flow = await applyFlowPermissions(guild);
+
+  const titel = staatErin ? 'Leidingkanaal opnieuw dichtgezet' : 'Leidingkanaal opgeslagen';
+  const embed = (flowHasWarnings(flow) || ontbreekt.length)
+    ? embeds.warningEmbed(`${titel}, maar let op`)
+    : embeds.successEmbed(titel);
+  addField(embed, 'Kanaal', staatErin
+    ? `<#${channel.id}> *(stond al in de lijst)*`
+    : `<#${channel.id}>`);
+  addField(embed, 'Wie hier binnenkomt', LEADER_EXPLANATION);
+  addField(embed, 'Nieuwe gangs', 'De boss- en underbossrol van een nieuwe gang worden hier '
+    + 'automatisch aan toegevoegd bij `/gang aanmaken`. Dit commando hoef je dus maar één '
+    + 'keer per kanaal te draaien.');
+  if (ontbreekt.length) {
+    addField(embed, 'De bot mist rechten in dit kanaal', [
+      `Ontbreekt: ${ontbreekt.join(', ')}.`,
+      'Zonder die rechten kan de bot hier geen rechtenregels zetten en blijft het kanaal '
+        + 'openstaan. Geef ze in Kanaalinstellingen → Rechten aan de botrol.',
+    ]);
+  }
+  addFlowResultFields(embed, flow);
   return respond(interaction, embed);
 }
 
@@ -1474,6 +1607,24 @@ function describeSharedCategories(guild, config) {
 }
 
 /**
+ * Beschrijft de leidingkanalen als veldwaarde voor /setup toon.
+ *
+ * @param {import('discord.js').Guild} guild De server.
+ * @param {object} config De serverconfiguratie.
+ * @returns {string} Regels voor in de embed.
+ */
+function describeLeaderChannels(guild, config) {
+  const ids = Array.isArray(config?.leaderChannelIds) ? config.leaderChannelIds : [];
+  if (!ids.length) return '— *geen*';
+
+  const regels = ids.slice(0, MAX_SHARED_SHOWN).map((id) => (resolveGuildChannel(guild, id)
+    ? `<#${id}>`
+    : `<#${id}> *(bestaat niet meer)*`));
+  if (ids.length > regels.length) regels.push(`… en ${ids.length - regels.length} meer`);
+  return regels.join('\n');
+}
+
+/**
  * Beschrijft de extrarollen (globalRoleIds) als veldwaarde.
  *
  * Deze horen in /setup toon thuis: ze geven toegang tot ELK gangkanaal, ook 💀・boss en
@@ -1555,6 +1706,8 @@ async function handleToon(interaction) {
   addField(embed, 'Dashboardbericht', config.dashboardMessageId
     ? `\`${config.dashboardMessageId}\``
     : '— *nog niet geplaatst*', true);
+  addField(embed, 'Leidingkanalen (alleen boss en underboss)',
+    describeLeaderChannels(guild, config));
   addField(embed, 'Gedeelde categorieën', describeSharedCategories(guild, config));
   addField(embed, 'Extrarollen (toegang tot alle gangkanalen)', describeGlobalRoles(guild, config));
   addField(embed, 'Standaardlimieten (nieuwe gangs)',
@@ -1626,6 +1779,22 @@ const data = new SlashCommandBuilder()
       .setDescription('De rol die staffrechten krijgt binnen het gangbeheer.')
       .setRequired(true)))
   .addSubcommand((sub) => sub
+    .setName('leidingkanaal')
+    .setDescription('Een kanaal waar alleen boss en underboss van elke gang bij kunnen.')
+    .addChannelOption((opt) => opt
+      .setName('kanaal')
+      .setDescription('Het kanaal dat alleen voor de gangleiding is.')
+      .addChannelTypes(...TEXT_CHANNEL_TYPES)
+      .setRequired(true))
+    .addStringOption((opt) => opt
+      .setName('actie')
+      .setDescription('Toevoegen (standaard) of weer loskoppelen.')
+      .addChoices(
+        { name: 'toevoegen', value: 'toevoegen' },
+        { name: 'verwijderen', value: 'verwijderen' },
+      )
+      .setRequired(false)))
+  .addSubcommand((sub) => sub
     .setName('bodemrol')
     .setDescription('Houd gangrollen altijd boven deze rol in de rollenlijst.')
     .addRoleOption((opt) => opt
@@ -1686,6 +1855,7 @@ const HANDLERS = {
   kanalen: handleKanalen,
   staffrol: handleStaffrol,
   bodemrol: handleBodemrol,
+  leidingkanaal: handleLeidingkanaal,
   'gedeelde-categorie': handleGedeeldeCategorie,
   extrarollen: handleExtraRollen,
   limieten: handleLimieten,
@@ -1720,7 +1890,7 @@ async function execute(interaction) {
   if (!handler) {
     return respond(interaction, embeds.errorEmbed(
       'Onbekend subcommando',
-      'Kies een van: `kanalen`, `staffrol`, `bodemrol`, `extrarollen`, '
+      'Kies een van: `kanalen`, `leidingkanaal`, `staffrol`, `bodemrol`, `extrarollen`, '
         + '`gedeelde-categorie`, `limieten`, `dashboard` of `toon`.',
     ));
   }
