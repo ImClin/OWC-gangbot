@@ -7,6 +7,7 @@ const constants = require('../lib/constants');
 /**
  * @typedef {object} GuildConfig
  * @property {string|null} staffRoleId
+ * @property {string|null} roleFloorId Gangrollen blijven altijd boven deze rol staan.
  * @property {string|null} hireChannelId
  * @property {string|null} fireChannelId
  * @property {string|null} logChannelId
@@ -237,6 +238,7 @@ const store = new JsonStore(DATA_FILE, { guilds: {} });
 function defaultGuildConfig() {
   return {
     staffRoleId: null,
+    roleFloorId: null,
     hireChannelId: null,
     fireChannelId: null,
     logChannelId: null,
@@ -307,6 +309,7 @@ function migrateGangLimits(gang) {
 function normalizeConfig(raw) {
   const out = { ...defaultGuildConfig(), ...(isPlainObject(raw) ? raw : {}) };
   out.staffRoleId = asId(out.staffRoleId);
+  out.roleFloorId = asId(out.roleFloorId);
   out.hireChannelId = asId(out.hireChannelId);
   out.fireChannelId = asId(out.fireChannelId);
   out.logChannelId = asId(out.logChannelId);

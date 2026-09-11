@@ -766,6 +766,122 @@ async function handleStaffrol(interaction) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* /setup bodemrol                                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Zoekt op of een rol bij een gang hoort (gangrol, boss of underboss).
+ *
+ * @param {string} guildId Server-id.
+ * @param {string} roleId Rol-id om te controleren.
+ * @returns {object|null} De gang waar de rol bij hoort, of null.
+ */
+function gangVanRol(guildId, roleId) {
+  let gangs = [];
+  try {
+    gangs = store.listGangs(guildId) || [];
+  } catch (err) {
+    logger.warn('Kon de gangs niet lezen bij het controleren van de bodemrol.', err);
+    return null;
+  }
+  return gangs.find((gang) => gang?.roleId === roleId
+    || gang?.bossRoleId === roleId
+    || gang?.underbossRoleId === roleId) || null;
+}
+
+/**
+ * Zet het resultaat van de herordening in de embed, zodat meteen zichtbaar is of de
+ * bestaande gangrollen ook echt verplaatst zijn.
+ *
+ * @param {import('discord.js').EmbedBuilder} embed De embed in aanbouw.
+ * @param {{ok: boolean, verplaatst: number, error?: string|null}} resultaat Van applyRoleOrder.
+ * @returns {void}
+ */
+function addRoleOrderResult(embed, resultaat) {
+  if (!resultaat?.ok) {
+    addField(embed, 'Bestaande gangrollen', resultaat?.error
+      || 'De rollenlijst kon nu niet bijgewerkt worden. Probeer `/gang herstel`.');
+    return;
+  }
+  addField(embed, 'Bestaande gangrollen', resultaat.verplaatst > 0
+    ? `${resultaat.verplaatst} rol(len) verplaatst naar de nieuwe volgorde.`
+    : 'Stonden al goed, er is niets verplaatst.');
+}
+
+/**
+ * Subcommand `bodemrol`: legt vast onder welke rol gangrollen nooit mogen zakken.
+ *
+ * Discord zet een net aangemaakte rol altijd onderaan, vlak boven @everyone. Zonder
+ * ondergrens blijft een nieuwe gangrol daar staan zolang er ruimte is. Met een bodemrol
+ * schuift het blok gangrollen altijd tot boven die rol.
+ *
+ * Geen rol meegeven zet de ondergrens weer uit.
+ *
+ * @param {import('discord.js').ChatInputCommandInteraction} interaction De interactie.
+ * @returns {Promise<void>}
+ */
+async function handleBodemrol(interaction) {
+  const guild = interaction.guild;
+  const picked = interaction.options.getRole('rol');
+
+  if (picked && picked.id === guild.id) {
+    return respond(interaction, embeds.errorEmbed(
+      '@everyone kan geen bodemrol zijn',
+      '@everyone staat altijd onderaan de rollenlijst, dus dat is precies wat er zonder '
+        + 'bodemrol al gebeurt. Kies de rol waar de gangrollen bovenuit moeten steken.',
+    ));
+  }
+
+  const gang = picked ? gangVanRol(guild.id, picked.id) : null;
+  if (gang) {
+    return respond(interaction, embeds.errorEmbed(
+      'Dit is zelf een gangrol',
+      `<@&${picked.id}> hoort bij de gang **${gang.name || gang.id}**. Een gangrol kan niet `
+        + 'de ondergrens voor de gangrollen zijn. Kies een rol die buiten het gangbeheer valt.',
+    ));
+  }
+
+  if (!(await deferEphemeral(interaction))) return;
+
+  if (!writeConfig(guild.id, { roleFloorId: picked ? picked.id : null })) {
+    return respond(interaction, saveFailedEmbed());
+  }
+
+  // Meteen toepassen, zodat de bestaande gangrollen niet tot de volgende actie blijven hangen.
+  let volgorde = { ok: false, verplaatst: 0, error: null };
+  try {
+    volgorde = await gangService.applyRoleOrder(guild);
+  } catch (err) {
+    logger.warn('De rolvolgorde bijwerken na /setup bodemrol mislukte.', err);
+  }
+
+  if (!picked) {
+    const uit = volgorde.ok
+      ? embeds.successEmbed('Bodemrol uitgezet')
+      : embeds.warningEmbed('Bodemrol uitgezet, maar let op');
+    addField(uit, 'Wat dit betekent',
+      'Gangrollen worden voortaan alleen nog boven @everyone gehouden. Waar ze nu staan '
+        + 'blijven ze staan; nieuwe gangrollen komen weer onderaan terecht zolang daar ruimte is.');
+    addRoleOrderResult(uit, volgorde);
+    return respond(interaction, uit);
+  }
+
+  const embed = volgorde.ok
+    ? embeds.successEmbed('Bodemrol opgeslagen')
+    : embeds.warningEmbed('Bodemrol opgeslagen, maar let op');
+  addField(embed, 'Bodemrol', `<@&${picked.id}> (positie ${picked.position})`);
+  addField(embed, 'Wat er nu gebeurt', [
+    'Nieuwe gangrollen (gangrol, boss en underboss) komen altijd boven deze rol te staan.',
+    'Dat geldt ook na `/gang herstel`, hernoemen en verwijderen: de volgorde wordt elke keer '
+      + 'opnieuw gezet.',
+    'De rol van de bot moet wel boven alle gangrollen blijven staan, anders mag Discord ze '
+      + 'niet verplaatsen.',
+  ]);
+  addRoleOrderResult(embed, volgorde);
+  return respond(interaction, embed);
+}
+
+/* -------------------------------------------------------------------------- */
 /* /setup gedeelde-categorie                                                   */
 /* -------------------------------------------------------------------------- */
 
@@ -1433,6 +1549,8 @@ async function handleToon(interaction) {
   addField(embed, 'Ontslagen', describeChannel(guild, config.fireChannelId), true);
   addField(embed, 'Logboek', describeChannel(guild, config.logChannelId), true);
   addField(embed, 'Staffrol', describeRole(guild, config.staffRoleId), true);
+  addField(embed, 'Bodemrol (gangrollen blijven hierboven)',
+    config.roleFloorId ? describeRole(guild, config.roleFloorId) : '— *niet ingesteld*', true);
   addField(embed, 'Dashboardkanaal', describeChannel(guild, config.dashboardChannelId), true);
   addField(embed, 'Dashboardbericht', config.dashboardMessageId
     ? `\`${config.dashboardMessageId}\``
@@ -1508,6 +1626,13 @@ const data = new SlashCommandBuilder()
       .setDescription('De rol die staffrechten krijgt binnen het gangbeheer.')
       .setRequired(true)))
   .addSubcommand((sub) => sub
+    .setName('bodemrol')
+    .setDescription('Houd gangrollen altijd boven deze rol in de rollenlijst.')
+    .addRoleOption((opt) => opt
+      .setName('rol')
+      .setDescription('De rol waar gangrollen nooit onder mogen zakken. Leeg laten zet dit uit.')
+      .setRequired(false)))
+  .addSubcommand((sub) => sub
     .setName('gedeelde-categorie')
     .setDescription('Beheer de categorieën waar alle gangs toegang toe krijgen.')
     .addChannelOption((opt) => opt
@@ -1560,6 +1685,7 @@ const data = new SlashCommandBuilder()
 const HANDLERS = {
   kanalen: handleKanalen,
   staffrol: handleStaffrol,
+  bodemrol: handleBodemrol,
   'gedeelde-categorie': handleGedeeldeCategorie,
   extrarollen: handleExtraRollen,
   limieten: handleLimieten,
@@ -1594,8 +1720,8 @@ async function execute(interaction) {
   if (!handler) {
     return respond(interaction, embeds.errorEmbed(
       'Onbekend subcommando',
-      'Kies een van: `kanalen`, `staffrol`, `extrarollen`, `gedeelde-categorie`, '
-        + '`limieten`, `dashboard` of `toon`.',
+      'Kies een van: `kanalen`, `staffrol`, `bodemrol`, `extrarollen`, '
+        + '`gedeelde-categorie`, `limieten`, `dashboard` of `toon`.',
     ));
   }
 

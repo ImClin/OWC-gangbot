@@ -342,6 +342,26 @@ Je hoeft de gangrollen niet handmatig te sorteren. De bot ordent ze zelf, zodat 
 - Zet je zelf een gangrol ergens anders neer, dan trekt de eerstvolgende `/gang herstel` de
   volgorde weer recht.
 
+**Een ondergrens instellen: `/setup bodemrol`**
+
+Discord zet een nieuwe rol altijd onderaan, vlak boven `@everyone`. Nieuwe gangrollen komen
+daardoor standaard onderin de lijst terecht. Wil je dat ze altijd boven een bepaalde rol
+uitkomen, wijs die rol dan aan als **bodemrol**:
+
+```
+/setup bodemrol rol:@Lid
+```
+
+Vanaf dat moment schuift het blok gangrollen bij elke ordening tot boven die rol - bij
+`/gang aanmaken`, `/gang hernoemen`, `/gang verwijderen` en `/gang herstel`. De bodemrol
+zelf blijft staan waar hij staat. Laat je de optie `rol` leeg, dan zet je de ondergrens
+weer uit en geldt alleen nog `@everyone` als bodem.
+
+Twee dingen waar de bot je voor behoedt: je kunt `@everyone` niet als bodemrol kiezen (dat
+is al de standaard) en een gangrol ook niet (die moet juist boven de grens blijven). Past
+het blok niet meer tussen de bodemrol en de botrol, dan verplaatst de bot niets en zegt hij
+dat erbij - sleep de botrol dan hoger.
+
 ---
 
 ## 7. Eerste configuratie met /setup
@@ -508,6 +528,7 @@ Alleen bruikbaar met het serverrecht **Server beheren**. Alle antwoorden zijn ep
 | `/setup kanalen` | `aangenomen` (kanaal), `ontslagen` (kanaal), `logboek` (kanaal) | Koppelt het aannamekanaal, het ontslagkanaal en het staf-logboek. **Doe dit als eerste.** De bot controleert meteen of hij daar genoeg rechten heeft, **zet `#aangenomen` en `#ontslagen` op slot** (alleen leiding, staff, extrarollen en de bot mogen er typen) en geeft een eerder gekoppeld kanaal weer vrij. |
 | `/setup extrarollen` | `rol`*, `actie` (`toevoegen` / `verwijderen`, standaard toevoegen) | Rollen die **alle** gangkanalen mogen zien en er typen, in het oortje mogen praten en in `#aangenomen` en `#ontslagen` mogen posten — bedoeld voor OWC en de wapendealers. Wordt meteen doorgevoerd op alle bestaande gangs, dus `/gang herstel` is niet nodig. Een gangrol of `@everyone` weigert de bot hier. |
 | `/setup staffrol` | `rol`* | Bepaalt welke rol als staff geldt binnen het gangbeheer (naast het serverrecht *Server beheren*). |
+| `/setup bodemrol` | `rol` (optioneel) | Houdt alle gangrollen altijd **boven** deze rol in de rollenlijst, ook nieuwe. Wordt meteen toegepast op de bestaande gangrollen. Laat `rol` leeg om de ondergrens weer uit te zetten. `@everyone` en gangrollen worden geweigerd. |
 | `/setup gedeelde-categorie` | `categorie`*, `actie`* (`toevoegen` / `verwijderen`), `sync_kinderen` (ja/nee, standaard nee) | Beheert de lijst categorieen waar alle gangs toegang toe krijgen. `sync_kinderen:ja` **overschrijft de permissies van de kanalen in die categorie** - gebruik met beleid. |
 | `/setup limieten` | `leden` (1-100), `bosses` (1-10), `underbosses` (0-10) | Zet de standaardlimieten voor **nieuwe** gangs. Bestaande gangs veranderen niet. |
 | `/setup dashboard` | `kanaal`* | Kiest het kanaal voor het live bezettingsoverzicht en post het bericht meteen. |

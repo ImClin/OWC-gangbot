@@ -1182,16 +1182,61 @@ function highestBotRole(guild) {
 }
 
 /**
- * Nederlandse melding voor het geval de gangrollen niet onder de botrol passen.
+ * De laagste positie die de onderste gangrol mag innemen.
+ *
+ * Standaard 1: positie 0 is van @everyone en die blijft altijd onderaan. Is er met
+ * /setup bodemrol een bodemrol ingesteld, dan ligt de grens een plek boven die rol,
+ * zodat nieuwe gangrollen daar nooit onder belanden.
+ *
+ * De bodemrol zelf kan nooit meetellen als grens voor zichzelf: is hij (per ongeluk) ook
+ * een gangrol, dan vallen we terug op 1 in plaats van een eis die niet te halen valt.
+ *
+ * @param {import('discord.js').Guild} guild De server.
+ * @param {import('discord.js').Role[]} gangRollen De gangrollen die geordend worden.
+ * @returns {number} De laagste toegestane positie, minimaal 1.
+ */
+function roleFloorPosition(guild, gangRollen) {
+  let floorId = null;
+  try {
+    floorId = store.getGuildConfig(guild.id)?.roleFloorId || null;
+  } catch (err) {
+    logger.warn(`gangService: de bodemrol kon niet gelezen worden (${err.message}).`);
+    return 1;
+  }
+  if (!floorId) return 1;
+
+  const floorRole = resolveRole(guild, floorId);
+  if (!floorRole) {
+    logger.warn(`gangService: de ingestelde bodemrol (${floorId}) bestaat niet meer; `
+      + 'de gangrollen worden alleen boven @everyone gehouden.');
+    return 1;
+  }
+  if (gangRollen.some((role) => role.id === floorRole.id)) {
+    logger.warn(`gangService: de bodemrol "${floorRole.name}" is zelf een gangrol; `
+      + 'hij wordt als ondergrens genegeerd.');
+    return 1;
+  }
+
+  const positie = Number(floorRole.position);
+  return Number.isFinite(positie) && positie >= 0 ? positie + 1 : 1;
+}
+
+/**
+ * Nederlandse melding voor het geval de gangrollen niet tussen de bodemrol en de botrol passen.
  *
  * @param {number} aantal Aantal gangrollen dat geordend moest worden.
+ * @param {number} bodem De laagste toegestane positie (1 = geen bodemrol ingesteld).
  * @returns {string} De melding, met de oplossing erbij.
  */
-function roleOrderTooLowError(aantal) {
+function roleOrderTooLowError(aantal, bodem) {
+  const bodemUitleg = bodem > 1
+    ? ' Er is ook een bodemrol ingesteld waar ze boven moeten blijven; haal die weg met'
+      + ' /setup bodemrol zonder rol als je hem niet meer nodig hebt.'
+    : '';
   return `De rol van de bot staat te laag in de rollenlijst: de ${aantal} gangrollen passen er`
     + ' niet allemaal onder, dus de volgorde is niet aangepast (er is niets verplaatst).'
     + ' Sleep in Serverinstellingen > Rollen de rol van de bot boven alle gangrollen en voer'
-    + ' daarna /gang herstel uit.';
+    + ` daarna /gang herstel uit.${bodemUitleg}`;
 }
 
 /**
@@ -1245,8 +1290,9 @@ async function applyRoleOrder(guild) {
       if (role) gewenst.push(role);
     }
   }
-  // Met hooguit een rol valt er niets te ordenen.
-  if (gewenst.length < 2) return { ok: true, verplaatst: 0, error: null };
+  // Zonder gangrollen valt er niets te ordenen. Een enkele rol wel: die moet nog steeds
+  // boven de bodemrol komen te staan.
+  if (!gewenst.length) return { ok: true, verplaatst: 0, error: null };
 
   const botRole = highestBotRole(guild);
   if (!botRole) {
@@ -1264,8 +1310,13 @@ async function applyRoleOrder(guild) {
   const botPositie = Number(botRole.position);
   const teHoog = gewenst.filter((role) => !(Number(role.position) < botPositie));
   if (teHoog.length) {
-    return { ok: false, verplaatst: 0, error: roleOrderTooLowError(gewenst.length) };
+    return { ok: false, verplaatst: 0, error: roleOrderTooLowError(gewenst.length, 1) };
   }
+
+  // Onderkant van het blok: boven @everyone, en boven de bodemrol als die is ingesteld.
+  const bodem = roleFloorPosition(guild, gewenst);
+  // De onderste gangrol staat op (top - lengte + 1), dus dit is de laagste bruikbare top.
+  const laagsteTop = bodem + gewenst.length - 1;
 
   // Bovenkant van het blok: de hoogste plek die de gangrollen nu al innemen, maar nooit
   // boven de botrol. Zo blijven de blokjes staan waar ze al stonden en schuiven ze niet
@@ -1274,12 +1325,11 @@ async function applyRoleOrder(guild) {
   const hoogste = gewenst.reduce((max, role) => Math.max(max, Number(role.position) || 0), 0);
   let top = Math.min(plafond, hoogste);
 
-  // Passen ze daar niet allemaal onder (verse rollen komen bij Discord onderaan te staan,
-  // dus vlak boven @everyone), dan schuift het blok net zo ver omhoog als nodig is. Positie 0
-  // is van @everyone en blijft dus buiten beeld.
-  if (top < gewenst.length) top = Math.min(plafond, gewenst.length);
-  if (top < gewenst.length) {
-    return { ok: false, verplaatst: 0, error: roleOrderTooLowError(gewenst.length) };
+  // Passen ze daar niet allemaal boven de ondergrens (verse rollen komen bij Discord onderaan
+  // te staan, dus vlak boven @everyone), dan schuift het blok net zo ver omhoog als nodig is.
+  if (top < laagsteTop) top = Math.min(plafond, laagsteTop);
+  if (top < laagsteTop) {
+    return { ok: false, verplaatst: 0, error: roleOrderTooLowError(gewenst.length, bodem) };
   }
 
   const wijzigingen = [];
