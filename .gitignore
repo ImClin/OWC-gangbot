@@ -1,0 +1,11 @@
+# Afhankelijkheden (opnieuw op te halen met npm install)
+node_modules/
+
+# Geheimen: bot-token en ID's. Deel dit bestand nooit.
+.env
+
+# Opslag van de bot (data/owc.json en back-ups van corrupte bestanden)
+data/
+
+# Logbestanden
+*.log
