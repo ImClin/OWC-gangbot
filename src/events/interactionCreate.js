@@ -288,7 +288,7 @@ async function handleDeleteButtons(interaction) {
       errorEmbed(
         'Knop werkt niet meer',
         'Deze knop kan nu niet afgehandeld worden en er is niets verwijderd.'
-          + ' Voer `/gang verwijderen` opnieuw uit; blijft het misgaan, meld het dan bij de staff.',
+          + ' Voer `/gangbeheer verwijderen` opnieuw uit; blijft het misgaan, meld het dan bij de staff.',
       ),
     );
     return;

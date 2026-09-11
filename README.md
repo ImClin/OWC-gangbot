@@ -41,7 +41,7 @@ Elk van deze drie heeft verderop een eigen hoofdstuk met klikstappen:
 8. [Alle commando's](#8-alle-commandos)
 9. [Werken met #aangenomen en #ontslagen](#9-werken-met-aangenomen-en-ontslagen)
 10. [De limieten: 22 leden per gang](#10-de-limieten-22-leden-per-gang)
-11. [Wat maakt /gang aanmaken precies aan?](#11-wat-maakt-gang-aanmaken-precies-aan)
+11. [Wat maakt /gangbeheer aanmaken precies aan?](#11-wat-maakt-gangbeheer-aanmaken-precies-aan)
 12. [Logboek, terugdraaien en dashboard](#12-logboek-terugdraaien-en-dashboard)
 13. [Back-up en herstel](#13-back-up-en-herstel)
 14. [Problemen oplossen](#14-problemen-oplossen)
@@ -51,7 +51,7 @@ Elk van deze drie heeft verderop een eigen hoofdstuk met klikstappen:
 
 ## 1. Wat de bot doet
 
-- **Gangs aanmaken met een commando.** `/gang aanmaken` zet in een keer een categorie,
+- **Gangs aanmaken met een commando.** `/gangbeheer aanmaken` zet in een keer een categorie,
   zes kanalen en drie rollen neer, met alle permissies goed ingesteld. De drie rollen komen
   meteen als een blokje bij elkaar in de rollenlijst te staan.
 - **Aannemen en ontslaan zonder staff.** De boss of underboss van een gang plaatst een
@@ -66,7 +66,7 @@ Elk van deze drie heeft verderop een eigen hoofdstuk met klikstappen:
   het logboekkanaal, met een **Terugdraaien**-knop voor staff.
 - **Live bezettingsoverzicht.** Een dashboardbericht dat elke 5 minuten laat zien hoe vol
   elke gang zit.
-- **Zelfherstel.** Is er per ongeluk een kanaal of een rol verwijderd? `/gang herstel`
+- **Zelfherstel.** Is er per ongeluk een kanaal of een rol verwijderd? `/gangbeheer herstel`
   maakt het opnieuw aan en zet alle permissies terug.
 
 ---
@@ -260,8 +260,8 @@ Rechten die de bot **uitdeelt** aan gangleden, leiding, staff en de extrarollen:
 | Bestanden toevoegen | Attach Files | Leden in de gangkanalen en `📷・media` |
 | Externe emoji gebruiken | Use External Emojis | Leden in de gangkanalen |
 | Deelnemen | Connect | Leden in `📞・oortje` |
-| Spreken | Speak | Alleen de leiding, staff en de extrarollen in het oortje |
-| Streamen (Video) | Video / Stream | Alleen de leiding, staff en de extrarollen in het oortje |
+| Spreken | Speak | Niemand in het oortje — de bot zet dit recht daar voor iedereen dicht |
+| Streamen (Video) | Video / Stream | Niemand in het oortje, om dezelfde reden |
 | Spraakactivering gebruiken | Use Voice Activity | Iedereen in het oortje |
 | Leden dempen | Mute Members | Boss en underboss in het oortje |
 | Leden doof zetten | Deafen Members | Alleen de boss |
@@ -276,7 +276,7 @@ Rechten die de bot **uitdeelt** aan gangleden, leiding, staff en de extrarollen:
 Verwijder na het uitnodigen **niets** van deze rechten. Haal je bijvoorbeeld "Rollen
 beheren" weg, dan mislukt elke aanname. `/setup toon` laat zien welke van de rechten uit de
 eerste tabel de bot mist; ontbreekt er een uit de tweede, dan meldt de bot dat bij
-`/gang aanmaken` en `/gang herstel`.
+`/gangbeheer aanmaken` en `/gangbeheer herstel`.
 
 ---
 
@@ -342,7 +342,7 @@ niet eens staan.
 
 Je hoeft dit per kanaal maar één keer te doen: maak je later een nieuwe gang aan, dan
 worden de verse boss- en underbossrol er automatisch aan toegevoegd. Hetzelfde gebeurt bij
-`/gang herstel`.
+`/gangbeheer herstel`.
 
 Wil je een kanaal weer vrijgeven, dan haalt `/setup leidingkanaal kanaal:#bosschat
 actie:verwijderen` de rechtenregels van de bot er ook echt weer af. Let op wat er daarna
@@ -368,14 +368,14 @@ Je hoeft de gangrollen niet handmatig te sorteren. De bot ordent ze zelf, zodat 
 
 - De gangs staan onderling op **aanmaakvolgorde**: de gang die je het eerst aanmaakte staat
   bovenaan. Dat is stabiel, dus de lijst gaat niet dansen bij elke wijziging.
-- De bot zet dit neer na `/gang aanmaken`, `/gang verwijderen`, `/gang hernoemen` en
-  `/gang herstel`. Staat alles al goed, dan verplaatst hij niets.
+- De bot zet dit neer na `/gangbeheer aanmaken`, `/gangbeheer verwijderen`, `/gangbeheer hernoemen` en
+  `/gangbeheer herstel`. Staat alles al goed, dan verplaatst hij niets.
 - De blokjes blijven staan **waar de gangrollen al stonden**, en nooit hoger dan vlak onder
   de botrol. Staat je stafrol daarboven, dan komt de bot daar dus niet aan.
 - **Staat de botrol te laag?** Dan doet de bot niets - hij verplaatst liever nul rollen dan
   een halve lijst - en meldt: *"De rol van de bot staat te laag in de rollenlijst"*. Sleep
-  de botrol dan omhoog zoals hierboven en draai `/gang herstel gang:<naam>`.
-- Zet je zelf een gangrol ergens anders neer, dan trekt de eerstvolgende `/gang herstel` de
+  de botrol dan omhoog zoals hierboven en draai `/gangbeheer herstel gang:<naam>`.
+- Zet je zelf een gangrol ergens anders neer, dan trekt de eerstvolgende `/gangbeheer herstel` de
   volgorde weer recht.
 
 **Een ondergrens instellen: `/setup bodemrol`**
@@ -389,7 +389,7 @@ uitkomen, wijs die rol dan aan als **bodemrol**:
 ```
 
 Vanaf dat moment schuift het blok gangrollen bij elke ordening tot boven die rol - bij
-`/gang aanmaken`, `/gang hernoemen`, `/gang verwijderen` en `/gang herstel`. De bodemrol
+`/gangbeheer aanmaken`, `/gangbeheer hernoemen`, `/gangbeheer verwijderen` en `/gangbeheer herstel`. De bodemrol
 zelf blijft staan waar hij staat. Laat je de optie `rol` leeg, dan zet je de ondergrens
 weer uit en geldt alleen nog `@everyone` als bodem.
 
@@ -460,7 +460,7 @@ Zo'n rol ziet en mag alles in elke gang: alle kanalen, ook `💀・boss` en `�
 typen in elk gangkanaal inclusief de mededelingen, en praten in het `📞・oortje`. Ook mag
 hij posten in `#aangenomen` en `#ontslagen`.
 
-- De wijziging wordt **meteen doorgevoerd op alle bestaande gangs**; `/gang herstel` is dus
+- De wijziging wordt **meteen doorgevoerd op alle bestaande gangs**; `/gangbeheer herstel` is dus
   niet nodig. De bot meldt hoeveel gangs hij heeft bijgewerkt.
 - Weghalen doe je met `actie:verwijderen`. Let op: had die rol in `#aangenomen` of
   `#ontslagen` een eigen recht dat je zelf had ingesteld, dan blijft dat staan - de bot
@@ -480,8 +480,8 @@ Welke rollen er nu in staan zie je met `/setup toon`.
 ```
 
 Dit is de waarde die **nieuwe** gangs krijgen. Bestaande gangs veranderen hier niet van;
-die pas je per stuk aan met `/gang limiet`. Je kunt hier ook `bosses` en `underbosses`
-meegeven (standaard 1 boss en 3 underbosses).
+die pas je per stuk aan met `/gangbeheer limiet`. Je kunt hier ook `bosses` en `underbosses`
+meegeven (standaard allebei 2).
 
 ### Stap 6 (optioneel) - Dashboard
 
@@ -534,20 +534,36 @@ dan is de bot klaar voor gebruik.
 
 | Subcommando | Opties | Wie mag dit | Wat het doet |
 |---|---|---|---|
-| `/gang aanmaken` | `naam`* (2-40 tekens), `emoji`* (precies 1 emoji), `afkorting` (2-20 tekens), `boss` (lid), `ledenlimiet` (1-100) | Staff | Maakt de complete gang aan: 1 categorie, 6 kanalen en 3 rollen, en zet die rollen meteen als blokje in de rollenlijst. Geef je `boss` op, dan krijgt die persoon meteen de gangrol en de bossrol. Laat je `ledenlimiet` leeg, dan geldt de serverstandaard uit `/setup limieten`. Mislukt er iets halverwege, dan draait de bot alles terug - er blijft nooit half werk staan. |
-| `/gang verwijderen` | `gang`* (typ om te zoeken), `rollen_verwijderen` (ja/nee, standaard **ja**) | Staff | Verwijdert de categorie en alle kanalen van de gang. Met `rollen_verwijderen:ja` gaan ook de drie rollen weg. Je krijgt eerst een bevestigingsvraag met knoppen; die vervalt na 60 seconden en alleen jij kunt erop klikken. **Dit kan niet ongedaan gemaakt worden.** |
 | `/gang lijst` | (geen) | Iedereen | Overzicht van alle gangs met per gang een bezettingsbalk. Dit antwoord is zichtbaar voor iedereen in het kanaal. |
-| `/gang info` | `gang` (optioneel; leeg = je eigen gang) | Leden en leiding van die gang, en staff | Toont boss, underboss, de overige leden, de limieten en een link naar de categorie. Zichtbaar voor iedereen in het kanaal. Je kunt alleen je eigen gang bekijken, tenzij je staff bent. |
-| `/gang hernoemen` | `gang`*, `naam`, `emoji`, `afkorting`, `afkorting_weghalen` (ja/nee) | Staff | Wijzigt de naam, de emoji en/of de afkorting. De categorie, de drie rollen en de kanalen met de gangnaam erin worden meteen hernoemd. Met `afkorting_weghalen:ja` komen de kanaalnamen weer uit de volledige naam. |
-| `/gang limiet` | `gang`*, `leden` (1-100), `bosses` (1-10), `underbosses` (0-10) | Staff | Past de limieten van die ene gang aan. Wat je niet invult, blijft ongewijzigd. |
+| `/gang info` | `gang` (optioneel; leeg = je eigen gang) | Leden en leiding van die gang, en staff | Toont boss, underboss, de overige leden en de limieten. Je kunt alleen je eigen gang bekijken, tenzij je staff bent. Staff en de leiding zien er ook de beheergegevens bij (kanaalnaam, wie de gang aanmaakte, ontbrekende rollen); een gewoon lid niet. |
 | `/gang promoveer` | `lid`* | **Boss** of staff | Zet iemand **een trede hoger**: lid → underboss → boss. De gang volgt uit de gangrol van het gekozen lid, dus die hoef je niet op te geven. De bot kijkt zelf waar iemand staat. Alleen staff mag de laatste stap naar boss zetten. |
 | `/gang degradeer` | `lid`* | **Boss** of staff | Zet iemand **een trede lager**: boss → underboss → lid. Ook hier volgt de gang uit het lid. Aan een zittende boss kan alleen staff iets veranderen. Onder "lid" zit niets meer; moet iemand helemaal uit de gang, gebruik dan `/gang ontslaan`. |
 | `/gang aannemen` | `lid`*, `gang` (leeg = je eigen gang) | Leiding of staff | Hetzelfde als een bericht in `#aangenomen`, maar dan als commando. Handig als het aannamekanaal even niet beschikbaar is. De aanname wordt ook **openbaar in `#aangenomen` gepost**. |
 | `/gang ontslaan` | `lid`*, `gang` (leeg = je eigen gang), `reden` (max 400 tekens) | Leiding of staff | Hetzelfde als een bericht in `#ontslagen`. Alle gangrollen die de persoon van deze gang heeft, gaan er in een keer af. Het ontslag wordt ook **openbaar in `#ontslagen` gepost**. |
-| `/gang herstel` | `gang`* | Staff | Maakt ontbrekende rollen, de categorie en ontbrekende kanalen opnieuw aan, zet alle permissies terug zoals ze horen en zet de rollenlijst weer op volgorde. Je eerste hulp als er per ongeluk iets verwijderd is. |
 | `/gang historie` | `gang` (optioneel), `lid` (optioneel), `aantal` (1-25, standaard 10) | Staff, en leiding voor de eigen gang | Toont de laatste acties (aannames, ontslagen, handmatige rolwijzigingen, vertrek uit de server) met tijdstip. |
 
 \* = verplichte optie.
+
+### /gangbeheer
+
+Het staffgedeelte, in een **apart commando** zodat Discord het kan verbergen. Wie geen
+**Server beheren** heeft, ziet `/gangbeheer` niet eens in de lijst staan.
+
+> **Wil je dat je staffrol het ook ziet?** Discord kan niet filteren op de staffrol uit
+> `/setup staffrol` — het kent alleen Discord-rechten. Voeg de rol daarom eenmalig toe in
+> **Serverinstellingen → Integraties → OWC Gangbot → `/gangbeheer`**: zet daar de rol op
+> *Toegestaan*. Dezelfde plek werkt ook voor `/setup`.
+>
+> Het verbergen is puur cosmetisch. Elk subcommando controleert nog steeds zelf of je staff
+> bent, dus een verkeerd gezette override geeft niemand extra macht.
+
+| Subcommando | Opties | Wat het doet |
+|---|---|---|
+| `/gangbeheer aanmaken` | `naam`* (2-40 tekens), `emoji`* (precies 1 emoji), `afkorting` (2-20 tekens), `boss` (lid), `ledenlimiet` (1-100) | Maakt de complete gang aan: 1 categorie, 6 kanalen en 3 rollen, en zet die rollen meteen als blokje in de rollenlijst. Geef je `boss` op, dan krijgt die persoon meteen de gangrol en de bossrol. Laat je `ledenlimiet` leeg, dan geldt de serverstandaard uit `/setup limieten`. Mislukt er iets halverwege, dan draait de bot alles terug - er blijft nooit half werk staan. |
+| `/gangbeheer verwijderen` | `gang`* (typ om te zoeken), `rollen_verwijderen` (ja/nee, standaard **ja**) | Verwijdert de categorie en alle kanalen van de gang. Met `rollen_verwijderen:ja` gaan ook de drie rollen weg. Je krijgt eerst een bevestigingsvraag met knoppen; die vervalt na 60 seconden en alleen jij kunt erop klikken. **Dit kan niet ongedaan gemaakt worden.** |
+| `/gangbeheer hernoemen` | `gang`*, `naam`, `emoji`, `afkorting`, `afkorting_weghalen` (ja/nee) | Wijzigt de naam, de emoji en/of de afkorting. De categorie, de drie rollen en de kanalen met de gangnaam erin worden meteen hernoemd. Met `afkorting_weghalen:ja` komen de kanaalnamen weer uit de volledige naam. |
+| `/gangbeheer limiet` | `gang`*, `leden` (1-100), `bosses` (1-10), `underbosses` (0-10) | Past de limieten van die ene gang aan. Wat je niet invult, blijft ongewijzigd. |
+| `/gangbeheer herstel` | `gang`* | Maakt ontbrekende rollen, de categorie en ontbrekende kanalen opnieuw aan, zet alle permissies terug zoals ze horen en zet de rollenlijst weer op volgorde. Je eerste hulp als er per ongeluk iets verwijderd is. |
 
 Bij elke `gang`-optie krijg je tijdens het typen suggesties (autocomplete): begin de naam
 te typen en kies uit de lijst.
@@ -562,7 +578,7 @@ Alleen bruikbaar met het serverrecht **Server beheren**. Alle antwoorden zijn ep
 | Subcommando | Opties | Wat het doet |
 |---|---|---|
 | `/setup kanalen` | `aangenomen` (kanaal), `ontslagen` (kanaal), `logboek` (kanaal) | Koppelt het aannamekanaal, het ontslagkanaal en het staf-logboek. **Doe dit als eerste.** De bot controleert meteen of hij daar genoeg rechten heeft, **zet `#aangenomen` en `#ontslagen` op slot** (alleen leiding, staff, extrarollen en de bot mogen er typen) en geeft een eerder gekoppeld kanaal weer vrij. |
-| `/setup extrarollen` | `rol`*, `actie` (`toevoegen` / `verwijderen`, standaard toevoegen) | Rollen die **alle** gangkanalen mogen zien en er typen, in het oortje mogen praten en in `#aangenomen` en `#ontslagen` mogen posten — bedoeld voor OWC en de wapendealers. Wordt meteen doorgevoerd op alle bestaande gangs, dus `/gang herstel` is niet nodig. Een gangrol of `@everyone` weigert de bot hier. |
+| `/setup extrarollen` | `rol`*, `actie` (`toevoegen` / `verwijderen`, standaard toevoegen) | Rollen die **alle** gangkanalen mogen zien en er typen, in het oortje mogen praten en in `#aangenomen` en `#ontslagen` mogen posten — bedoeld voor OWC en de wapendealers. Wordt meteen doorgevoerd op alle bestaande gangs, dus `/gangbeheer herstel` is niet nodig. Een gangrol of `@everyone` weigert de bot hier. |
 | `/setup leidingkanaal` | `kanaal`*, `actie` (`toevoegen` / `verwijderen`, standaard toevoegen) | Wijst een kanaal aan waar alleen **boss en underboss van elke gang**, staff, de extrarollen en de bot bij kunnen — bijvoorbeeld een gedeelde bosschat. `@everyone` en gewone gangleden zien het niet staan. Nieuwe gangs worden er automatisch aan toegevoegd. `verwijderen` haalt de rechtenregels van de bot er weer af. |
 | `/setup staffrol` | `rol`* | Bepaalt welke rol als staff geldt binnen het gangbeheer (naast het serverrecht *Server beheren*). |
 | `/setup meldrol` | `rol` (optioneel) | Welke rol een **ping** krijgt in het logkanaal als de bot er niet uitkomt — bijvoorbeeld een lid dat de gangrol van twee gangs tegelijk heeft. Deze rol krijgt hier **geen rechten** van. Laat `rol` leeg om de ping weer uit te zetten; de melding zelf blijft dan gewoon komen. |
@@ -745,7 +761,7 @@ Een gang heeft **één soort lid** en dus **één** grens op het aantal personen
 | **Ledenlimiet** | **22** | Iedereen met de gangrol. **De boss en de underboss tellen hierin mee** - het zijn dus geen extra plekken. |
 
 Ofwel: **22 personen per gang, boss en underboss inbegrepen.** Je past hem per gang aan met
-`/gang limiet gang:Rayuza leden:<aantal>` (1 t/m 100).
+`/gangbeheer limiet gang:Rayuza leden:<aantal>` (1 t/m 100).
 
 ### Hoeveel leiders mag een gang hebben?
 
@@ -754,13 +770,13 @@ boss en een underboss zijn gewoon leden en tellen dus ook mee binnen de 22.
 
 | Limiet | Standaard | Wat wordt geteld |
 |---|---|---|
-| **Bosslimiet** | **1** | Iedereen met de rol `<Gang> Boss`. |
-| **Underbosslimiet** | **3** | Iedereen met de rol `<Gang> Underboss`. |
+| **Bosslimiet** | **2** | Iedereen met de rol `<Gang> Boss`. |
+| **Underbosslimiet** | **2** | Iedereen met de rol `<Gang> Underboss`. |
 
 Probeer je er een derde bij te zetten, dan weigert de bot dat:
 
 > Rayuza heeft al 2/2 underbosses. Degradeer er eerst één met `/gang degradeer`, of
-> verhoog de limiet met `/gang limiet underbosses:<aantal>`.
+> verhoog de limiet met `/gangbeheer limiet underbosses:<aantal>`.
 
 Wordt een underboss gepromoveerd tot boss, dan maakt hij zijn underbossplek meteen vrij -
 die telt dus niet dubbel.
@@ -834,13 +850,13 @@ En in het logboek verschijnt een waarschuwing zodra een gang tegen een grens aan
 **Voor een gang** (dit is wat je meestal wilt):
 
 ```
-/gang limiet gang:Rayuza leden:25
+/gangbeheer limiet gang:Rayuza leden:25
 ```
 
 Wat je niet invult, blijft ongewijzigd. Wil je alleen de leiding verruimen:
 
 ```
-/gang limiet gang:Rayuza underbosses:3
+/gangbeheer limiet gang:Rayuza underbosses:3
 ```
 
 **Voor alle nieuwe gangs** (de standaardwaarden van de server):
@@ -849,7 +865,7 @@ Wat je niet invult, blijft ongewijzigd. Wil je alleen de leiding verruimen:
 /setup limieten leden:22
 ```
 
-Dit verandert **niets** aan bestaande gangs - die pas je per stuk aan met `/gang limiet`.
+Dit verandert **niets** aan bestaande gangs - die pas je per stuk aan met `/gangbeheer limiet`.
 
 **Toegestane waarden:** leden 1-100, bosses 1-10, underbosses 0-10.
 
@@ -858,9 +874,9 @@ De actuele bezetting zie je met `/gang info`, `/gang lijst` of op het dashboard,
 
 ---
 
-## 11. Wat maakt /gang aanmaken precies aan?
+## 11. Wat maakt /gangbeheer aanmaken precies aan?
 
-Bij `/gang aanmaken naam:Rayuza emoji:⚔️` zet de bot dit neer.
+Bij `/gangbeheer aanmaken naam:Rayuza emoji:⚔️` zet de bot dit neer.
 
 ### 1 categorie
 
@@ -885,7 +901,7 @@ Bij een lange naam worden die kanaalnamen onwerkbaar: *Grove Street Family* leve
 `💭・grove-street-family-chat` op. Geef daarom een **afkorting** mee:
 
 ```
-/gang aanmaken naam:Grove Street Family emoji:🟢 afkorting:gsf
+/gangbeheer aanmaken naam:Grove Street Family emoji:🟢 afkorting:gsf
 ```
 
 | | Zonder afkorting | Met `afkorting:gsf` |
@@ -903,8 +919,8 @@ volledige naam, precies zoals daarvoor.
 **Later toevoegen of wijzigen** kan ook; de kanalen worden dan meteen hernoemd:
 
 ```
-/gang hernoemen gang:Grove Street Family afkorting:gsf
-/gang hernoemen gang:Grove Street Family afkorting_weghalen:ja
+/gangbeheer hernoemen gang:Grove Street Family afkorting:gsf
+/gangbeheer hernoemen gang:Grove Street Family afkorting_weghalen:ja
 ```
 
 Twee dingen om te weten:
@@ -960,7 +976,7 @@ het hieronder afwijkt, is dat expliciet ingesteld.
 | `💭・rayuza-chat` | Geen toegang | Lezen en schrijven | Lezen, schrijven, beheren | Lezen en schrijven |
 | `📷・media` | Geen toegang | Lezen, schrijven, bestanden | Lezen, schrijven, beheren | Lezen en schrijven |
 | `👤・dark-chat` | Geen toegang | **Geen toegang** | Lezen en schrijven | Lezen en schrijven |
-| `📞・rayuza-oortje` (spraak) | Geen toegang | Deelnemen en **meeluisteren**, niet praten | Deelnemen, **praten**, streamen, muten, slepen | Deelnemen en **praten** |
+| `📞・rayuza-oortje` (spraak) | Geen toegang | Deelnemen en **meeluisteren**, niet praten | Deelnemen en meeluisteren, **niet praten**, wel muten en slepen | Deelnemen en meeluisteren, **niet praten** |
 
 En buiten de gangcategorie, in de twee registers van de server:
 
@@ -972,12 +988,16 @@ En buiten de gangcategorie, in de twee registers van de server:
 
 - **💀・boss en 👤・dark-chat zijn alleen voor de leiding.** Gewone leden zien deze twee
   kanalen niet eens staan.
-- **In het oortje praat alleen de leiding.** Gewone leden kunnen het kanaal wel binnenlopen
-  en meeluisteren, maar hun microfoon doet niets. Zo blijft het een commandokanaal in
-  plaats van een groepsgesprek.
+- **In het oortje praat niemand.** Het is een luisterkanaal: je zit erbij, het praten
+  gebeurt in-game. Iedereen kan binnenlopen en meeluisteren, maar geen enkele microfoon
+  doet het - ook die van de boss niet. De bot zet `Spreken` en `Video` daar dicht voor
+  `@everyone`, voor de gangrol en voor de extrarollen; dat moet apart per rol, want in
+  Discord wint een toestemming op de ene rol van een weigering op een andere.
+  Eén uitzondering die geen enkel kanaalrecht tegenhoudt: wie het serverrecht **Beheerder**
+  heeft, kan altijd praten. Dat is Discord, niet de bot.
 - **Staff, OWC en wapendealers zien en mogen alles** in elke gang, ook het bosskanaal en
-  dark-chat, en ze mogen in het oortje praten. De stafrol stel je in met `/setup staffrol`;
-  OWC en de wapendealers voeg je toe met `/setup extrarollen`.
+  dark-chat. Praten in het oortje kunnen ook zij niet. De stafrol stel je in met
+  `/setup staffrol`; OWC en de wapendealers voeg je toe met `/setup extrarollen`.
 - Waarom die rollen ook binnenkomen in kanalen die voor leden dichtstaan: Discord haalt
   eerst alle weigeringen weg en zet daarna alle toestemmingen erbij. Een toestemming op
   de ene rol wint dus van een weigering op een andere rol. Precies daarom staat de
@@ -987,7 +1007,7 @@ En buiten de gangcategorie, in de twee registers van de server:
   te posten, en in `#aangenomen` en `#ontslagen` een eigen uitzondering. Haal die
   instellingen niet weg: zonder die uitzondering treft de weigering voor `@everyone` ook de
   bot en kan hij daar niet meer antwoorden.
-- Wijzig je later met de hand permissies en gaat er iets mis? `/gang herstel gang:Rayuza`
+- Wijzig je later met de hand permissies en gaat er iets mis? `/gangbeheer herstel gang:Rayuza`
   zet de gangkanalen terug zoals hierboven; `/setup kanalen` doet dat voor de registers.
 
 ### Gedeelde categorieen
@@ -1087,12 +1107,12 @@ en begint hij met een leeg bestand. Je oude gegevens staan dan dus nog in dat
 > **Niet doen:** `owc.json` met de hand aanpassen terwijl de bot draait. De bot houdt de
 > inhoud in het geheugen en overschrijft je wijziging bij de eerstvolgende actie.
 
-### /gang herstel - reparatie in Discord
+### /gangbeheer herstel - reparatie in Discord
 
 Is er in Discord iets weggegooid (een kanaal, de categorie of een rol), gebruik dan:
 
 ```
-/gang herstel gang:Rayuza
+/gangbeheer herstel gang:Rayuza
 ```
 
 De bot:
@@ -1127,20 +1147,20 @@ zegt de bot dat ook.
 | **Alle gangs tonen `0/22 leden`, terwijl er wel mensen in zitten.** | De **Server Members Intent** staat uit, dus de bot kan de ledenlijst niet ophalen. In de opstartlog staat dan: *"Kon de leden van ... niet ophalen"*. | Zet de Server Members Intent aan en start de bot opnieuw. De telling klopt daarna binnen enkele seconden. |
 | **`/gang` en `/setup` staan niet in het commandolijstje van Discord.** | De commando's zijn nooit geregistreerd, of ze zijn globaal geregistreerd (dat kan tot een uur duren). | Voer `npm run deploy` uit. Vul `GUILD_ID` in je `.env` in voor directe registratie op jouw server. Werkt het nog niet: ververs Discord met Ctrl+R en controleer dat de bot is uitgenodigd met de scope `applications.commands`. |
 | **"Alleen de boss of underboss van een gang mag hier aannemen", terwijl die persoon wel de boss is.** | Die persoon heeft de rol `Rayuza Boss` niet, maar bijvoorbeeld alleen `Rayuza`. | Promoveer die persoon met `/gang promoveer lid:@Jan` tot hij boss is (staff mag de laatste stap zetten). Dat zet meteen ook de gangrol goed. |
-| **"Rayuza zit vol (22/22 leden)" terwijl je er visueel minder ziet.** | Boss en underboss tellen mee binnen de 22, en de bot telt iedereen met de gangrol - ook mensen die je vergeten was. | Bekijk `/gang info gang:Rayuza` voor de exacte lijst. Ontsla iemand in `#ontslagen`, of verhoog de grens met `/gang limiet gang:Rayuza leden:25`. |
+| **"Rayuza zit vol (22/22 leden)" terwijl je er visueel minder ziet.** | Boss en underboss tellen mee binnen de 22, en de bot telt iedereen met de gangrol - ook mensen die je vergeten was. | Bekijk `/gang info gang:Rayuza` voor de exacte lijst. Ontsla iemand in `#ontslagen`, of verhoog de grens met `/gangbeheer limiet gang:Rayuza leden:25`. |
 | **Iemand aannemen lukt niet: "zit al bij Los Zetas".** | Een persoon kan maar bij een gang tegelijk horen; de bot weigert dubbele gangrollen. | Laat de leiding van Los Zetas die persoon eerst ontslaan (`#ontslagen` of `/gang ontslaan`) en neem hem daarna aan. Staff kan het ook zelf doen. |
 | **De bot zet een ✅, maar de samenvatting is verdwenen.** | Ging er niets goed, dan ruimt de bot de samenvatting na 60 seconden op. Hint- en foutmeldingen verdwijnen al na 15 tot 30 seconden. | Bij (deels) succes blijft de samenvatting staan. Wil je het terugzien: `/gang historie gang:Rayuza`, of kijk in het logboekkanaal. |
 | **Er komt niets in het logboekkanaal.** | Het logkanaal is niet ingesteld, of de bot mag er niet posten. De bot faalt hier bewust stil, zodat de aanname zelf wel doorgaat. | `/setup kanalen logboek:#gang-logboek` en geef de bot in dat kanaal *Kanaal bekijken*, *Berichten versturen* en *Links insluiten*. Controleer met `/setup toon`. |
 | **Handmatige rolwijzigingen worden niet gemeld ("wie heeft Jan de rol Rayuza gegeven?").** | De bot mist het recht **Auditlogboek bekijken** (View Audit Log). | Serverinstellingen &rarr; Rollen &rarr; botrol &rarr; zet *Auditlogboek bekijken* aan. |
 | **Het dashboardbericht wordt niet bijgewerkt.** | Het bericht is verwijderd, of de bot mag in dat kanaal niet meer posten of de geschiedenis niet lezen. | De bot post binnen 5 minuten vanzelf een nieuw bericht. Gebeurt dat niet: controleer de rechten en draai `/setup dashboard kanaal:#gang-overzicht` opnieuw. |
-| **`/gang aanmaken` faalt en er staat niets half aangemaakt.** | Dat is expres: mislukt er iets halverwege, dan draait de bot alles terug. Meestal ontbreekt *Kanalen beheren* of *Rollen beheren*, of zit de server aan de limiet van 500 kanalen of 250 rollen. | Lees de foutmelding: die noemt de oorzaak. Geef de botrol de ontbrekende rechten, of ruim eerst oude kanalen en rollen op. |
-| **Een kanaal of een rol van een gang is per ongeluk verwijderd.** | Iemand heeft het in Discord weggegooid. | `/gang herstel gang:Rayuza`. Let op: een opnieuw aangemaakte rol is leeg, dus de leden moeten opnieuw toegevoegd worden. |
+| **`/gangbeheer aanmaken` faalt en er staat niets half aangemaakt.** | Dat is expres: mislukt er iets halverwege, dan draait de bot alles terug. Meestal ontbreekt *Kanalen beheren* of *Rollen beheren*, of zit de server aan de limiet van 500 kanalen of 250 rollen. | Lees de foutmelding: die noemt de oorzaak. Geef de botrol de ontbrekende rechten, of ruim eerst oude kanalen en rollen op. |
+| **Een kanaal of een rol van een gang is per ongeluk verwijderd.** | Iemand heeft het in Discord weggegooid. | `/gangbeheer herstel gang:Rayuza`. Let op: een opnieuw aangemaakte rol is leeg, dus de leden moeten opnieuw toegevoegd worden. |
 | **De bot reageert met ❓ en een hint.** | In je bericht stond geen bruikbare @-mention, bijvoorbeeld alleen de naam getypt of alleen een rolmention. | Mention de persoon echt: typ `@` en kies de gebruiker uit het lijstje. Zie de voorbeelden in hoofdstuk 9. |
-| **"Er zijn nog geen gangs aangemaakt", of de suggesties bij de optie `gang` blijven leeg.** | Er is nog geen gang aangemaakt, of `data/owc.json` is leeg of vervangen. | Maak een gang met `/gang aanmaken`. Ging er data verloren, zet dan je back-up terug (hoofdstuk 13). |
+| **"Er zijn nog geen gangs aangemaakt", of de suggesties bij de optie `gang` blijven leeg.** | Er is nog geen gang aangemaakt, of `data/owc.json` is leeg of vervangen. | Maak een gang met `/gangbeheer aanmaken`. Ging er data verloren, zet dan je back-up terug (hoofdstuk 13). |
 | **Een boss klaagt: "ik kan niks meer typen in #aangenomen".** | Die persoon heeft de rol `Rayuza Boss` niet (alleen `Rayuza`), of `/setup kanalen` is nooit gedraaid nadat die gang is aangemaakt. | Controleer met `/gang info gang:Rayuza` wie er boss is; promoveer die persoon anders met `/gang promoveer`. Draai daarna `/setup kanalen aangenomen:#aangenomen ontslagen:#ontslagen` opnieuw. |
 | **Iedereen kan nog gewoon in #aangenomen typen.** | Je draaide de bot al vóór deze versie en hebt `/setup kanalen` sindsdien niet opnieuw gedraaid, óf de bot mist het recht *Rollen beheren* of *Kanaal bekijken* in dat kanaal. | Draai `/setup kanalen aangenomen:#aangenomen ontslagen:#ontslagen`. Blijft het open, geef de botrol dan in Kanaalinstellingen &rarr; Rechten *Kanaal bekijken* en *Rollen beheren* en probeer het opnieuw. |
 | **Er wordt via een thread in #aangenomen getypt.** | De bot mist *Openbare threads maken* en/of *Privéthreads maken* op serverniveau, dus hij kon die rechten daar ook niet weigeren. | Geef de botrol die twee rechten (Serverinstellingen &rarr; Rollen &rarr; botrol) en draai `/setup kanalen` opnieuw. Zie [hoofdstuk 5](#5-de-bot-uitnodigen-op-je-server). |
-| **"De rol van de bot staat te laag in de rollenlijst" na `/gang aanmaken`.** | De bot wilde de gangrollen als blokje neerzetten, maar er is boven hem geen plek voor. Hij verplaatst dan bewust niets. | Sleep de botrol in Serverinstellingen &rarr; **Rollen** boven alle gangrollen en draai `/gang herstel gang:Rayuza`. De gang zelf is gewoon aangemaakt; alleen de volgorde stond nog niet goed. |
+| **"De rol van de bot staat te laag in de rollenlijst" na `/gangbeheer aanmaken`.** | De bot wilde de gangrollen als blokje neerzetten, maar er is boven hem geen plek voor. Hij verplaatst dan bewust niets. | Sleep de botrol in Serverinstellingen &rarr; **Rollen** boven alle gangrollen en draai `/gangbeheer herstel gang:Rayuza`. De gang zelf is gewoon aangemaakt; alleen de volgorde stond nog niet goed. |
 | **De bot gaat offline zodra ik de terminal sluit.** | De bot draait als gewoon programma in dat terminalvenster. | Laat het venster openstaan, of draai de bot als achtergronddienst (bijvoorbeeld met `pm2` of als Windows-service). |
 
 ### Meer informatie bij een probleem
@@ -1170,7 +1190,7 @@ geen sleutelwoord `meeloper` in `#aangenomen`.
 
 - **Wie de rol `<Gang> Meeloper` had, houdt zijn gangrol** en is dus gewoon lid. Niemand
   raakt zijn plek in de gang kwijt.
-- **De oude rol zelf ruim je op met `/gang herstel gang:<naam>`.** De bot verwijdert de
+- **De oude rol zelf ruim je op met `/gangbeheer herstel gang:<naam>`.** De bot verwijdert de
   achtergebleven `<Gang> Meeloper`-rol en zegt in het resultaat dat hij dat gedaan heeft.
   Lukt het verwijderen niet (bijvoorbeeld omdat de botrol te laag staat), dan gaat de rest
   van het herstel gewoon door en kun je het later opnieuw proberen. Verwijder je de hele
@@ -1199,7 +1219,7 @@ van je gangs verandert dus niet, en niemand valt ineens buiten de boot.
 | 20 leden + 2 meelopers, totaal 21 | **21** |
 
 De bot meldt bij het opstarten per gang wat de nieuwe waarde is geworden. Klopt hij niet
-met wat je bedoelde, zet hem dan recht met `/gang limiet gang:<naam> leden:<aantal>`. De
+met wat je bedoelde, zet hem dan recht met `/gangbeheer limiet gang:<naam> leden:<aantal>`. De
 serverstandaard voor **nieuwe** gangs is op dezelfde manier omgerekend en pas je aan met
 `/setup limieten leden:<aantal>`.
 
@@ -1223,6 +1243,6 @@ gekoppeld zijn.
 ```
 1.  npm start                     -> de limieten worden vanzelf omgerekend
 2.  /setup kanalen ...            -> #aangenomen en #ontslagen op slot
-3.  /gang herstel gang:<naam>     -> per gang: meeloperrol weg, rolvolgorde goed
+3.  /gangbeheer herstel gang:<naam>     -> per gang: meeloperrol weg, rolvolgorde goed
 4.  /setup toon                   -> controleer of alles op groen staat
 ```

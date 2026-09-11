@@ -673,9 +673,37 @@ function buildChannelOverwrites(guild, gang, kind, guildConfig) {
   // ManageMessages, en dat recht erft de bot nooit via @everyone.
   const botPerms = botGuildPermissions(guild);
 
+  /**
+   * Weigert een aantal rechten op een rol, en haalt ze eerst uit de allow van diezelfde
+   * overwrite. Zonder dat laatste zou een recht tegelijk toegestaan en geweigerd staan -
+   * de categorie deelt bijvoorbeeld Speak uit aan de extrarollen, terwijl het oortje het
+   * juist dichtzet.
+   *
+   * @param {{allow: Array<bigint>, deny: Array<bigint>}|null} entry De overwrite.
+   * @param {ReadonlyArray<bigint>} bits De te weigeren rechten.
+   * @returns {void}
+   */
+  const weiger = (entry, bits) => {
+    if (!entry) return;
+    const teWeigeren = allowedBits(botPerms, bits);
+    if (!teWeigeren.length) return;
+    const set = new Set(teWeigeren);
+    entry.allow = entry.allow.filter((bit) => !set.has(bit));
+    entry.deny.push(...teWeigeren);
+  };
+
+  if (extra.everyoneDeny?.length) {
+    weiger(ensure(guild?.roles?.everyone?.id, OverwriteType.Role), extra.everyoneDeny);
+  }
+
   if (extra.gangDeny?.length) {
-    const gangEntry = ensure(gang?.roleId, OverwriteType.Role);
-    if (gangEntry) gangEntry.deny.push(...allowedBits(botPerms, extra.gangDeny));
+    weiger(ensure(gang?.roleId, OverwriteType.Role), extra.gangDeny);
+  }
+
+  if (extra.globalDeny?.length) {
+    for (const roleId of collectGlobalRoleIds(guild, gang, guildConfig)) {
+      weiger(ensure(roleId, OverwriteType.Role), extra.globalDeny);
+    }
   }
 
   if (extra.leaderAllow?.length) {

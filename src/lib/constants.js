@@ -31,10 +31,10 @@ const CHANNEL_BLUEPRINT = [
 const DEFAULT_MEMBER_LIMIT = 22;
 
 /** Standaard aantal bosses per gang. */
-const DEFAULT_BOSS_LIMIT = 1;
+const DEFAULT_BOSS_LIMIT = 2;
 
 /** Standaard aantal underbosses per gang. */
-const DEFAULT_UNDERBOSS_LIMIT = 3;
+const DEFAULT_UNDERBOSS_LIMIT = 2;
 
 /** Embedkleuren. */
 const COLORS = {
@@ -162,9 +162,10 @@ const CATEGORY_PERMS = {
   ],
 
   // Server-brede rollen die overal bij mogen (OWC, wapendealers): zien en typen in elk
-  // gangkanaal, inclusief bosskanaal en dark-chat, en praten in het oortje. Omdat een
-  // allow op de ene rol in Discord wint van een deny op een andere rol, komen ze ook
-  // binnen in de kanalen die voor gewone leden dichtstaan.
+  // gangkanaal, inclusief bosskanaal en dark-chat. Omdat een allow op de ene rol in Discord
+  // wint van een deny op een andere rol, komen ze ook binnen in de kanalen die voor gewone
+  // leden dichtstaan. In het oortje halen CHANNEL_PERMS.oortje.globalDeny hun spreekrechten
+  // er weer af: daar praat niemand.
   global: [
     PermissionFlagsBits.ViewChannel,
     PermissionFlagsBits.ReadMessageHistory,
@@ -205,7 +206,12 @@ const CATEGORY_PERMS = {
 /**
  * Kanaal-specifieke overwrites bovenop CATEGORY_PERMS, per blueprint-kind.
  * Kanalen die hier niet in staan erven simpelweg alles van de categorie.
- * @type {Readonly<Record<string, Readonly<Record<'gangDeny'|'leaderAllow', ReadonlyArray<bigint>>>>>}
+ *
+ * `gangDeny` gaat op de gangrol, `leaderAllow` op de boss- en underbossrol, `everyoneDeny`
+ * op @everyone en `globalDeny` op de extrarollen uit /setup extrarollen. Een recht dat in
+ * een deny-lijst staat wordt eerst uit de allow van diezelfde rol gehaald, zodat er nooit
+ * een overwrite ontstaat die een recht tegelijk toestaat en weigert.
+ * @type {Readonly<Record<string, Readonly<Record<'gangDeny'|'leaderAllow'|'everyoneDeny'|'globalDeny', ReadonlyArray<bigint>>>>>}
  */
 const CHANNEL_PERMS = {
   // Mededelingen: leden lezen alleen, boss en underboss mogen posten en opruimen.
@@ -232,11 +238,21 @@ const CHANNEL_PERMS = {
     leaderAllow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages],
   },
 
-  // Oortje: gangleden luisteren mee maar praten niet. De deny moet expliciet, anders valt
-  // Speak terug op het serverrecht van @everyone (dat spreken standaard toestaat).
+  // Oortje: NIEMAND praat hier, ook de leiding niet. Het is een luisterkanaal - het praten
+  // gebeurt in-game, dit kanaal is alleen om erbij te zitten.
+  //
+  // De deny moet op elke rol apart, want Discord laat een allow op de ene rol winnen van
+  // een deny op een andere. @everyone vangt iedereen zonder eigen spreekrecht (zoals de
+  // staffrol), gangDeny de gangrol (die ook boss en underboss dragen) en globalDeny de
+  // extrarollen, die via CATEGORY_PERMS.global anders wél Speak zouden houden.
+  //
+  // Wat hier niet tegen helpt: het serverrecht Beheerder. Dat negeert alle kanaalrechten,
+  // dus een admin kan altijd praten.
   oortje: {
+    everyoneDeny: [PermissionFlagsBits.Speak, PermissionFlagsBits.Stream],
     gangDeny: [PermissionFlagsBits.Speak, PermissionFlagsBits.Stream],
-    leaderAllow: [PermissionFlagsBits.Speak, PermissionFlagsBits.Stream],
+    globalDeny: [PermissionFlagsBits.Speak, PermissionFlagsBits.Stream],
+    leaderAllow: [],
   },
 };
 

@@ -8,6 +8,7 @@
 
 const {
   SlashCommandBuilder,
+  PermissionFlagsBits,
   MessageFlags,
   ActionRowBuilder,
   ButtonBuilder,
@@ -1626,29 +1627,12 @@ function addGangOption(sub, required, beschrijving) {
 }
 
 /**
- * Bouwt de subcommands rond het aanmaken, verwijderen en tonen van gangs.
+ * Bouwt de subcommands van /gang: alles wat gangleden en gangleiding gebruiken.
  *
  * @param {import('discord.js').SlashCommandBuilder} builder De hoofdbouwer.
  * @returns {import('discord.js').SlashCommandBuilder} Dezelfde bouwer.
  */
 function addBasisSubcommands(builder) {
-  builder.addSubcommand((sub) => sub
-    .setName('aanmaken')
-    .setDescription('Maak een nieuwe gang aan (staff)')
-    .addStringOption((o) => o.setName('naam').setDescription('Naam van de gang, 2 tot 40 tekens').setRequired(true))
-    .addStringOption((o) => o.setName('emoji').setDescription('Precies 1 emoji voor categorie en kanalen').setRequired(true))
-    .addStringOption((o) => o.setName('afkorting').setDescription('Korte naam voor in de kanaalnamen, bv. gsf (leeg = de volledige naam)').setRequired(false))
-    .addUserOption((o) => o.setName('boss').setDescription('Wie wordt meteen de boss?').setRequired(false))
-    .addIntegerOption((o) => o.setName('ledenlimiet').setDescription('Max. aantal leden (leeg = de serverstandaard uit /setup limieten)').setMinValue(1).setMaxValue(100)));
-
-  builder.addSubcommand((sub) => addGangOption(sub
-    .setName('verwijderen')
-    .setDescription('Verwijder een gang met alles erin (staff)'), true)
-    .addBooleanOption((o) => o
-      .setName('rollen_verwijderen')
-      .setDescription('Ook de 3 rollen verwijderen? (standaard ja)')
-      .setRequired(false)));
-
   builder.addSubcommand((sub) => sub
     .setName('lijst')
     .setDescription('Toon alle gangs met hun bezetting'));
@@ -1656,31 +1640,6 @@ function addBasisSubcommands(builder) {
   builder.addSubcommand((sub) => addGangOption(sub
     .setName('info')
     .setDescription('Toon de gegevens van een gang (leeg = je eigen gang)'), false));
-
-  return builder;
-}
-
-/**
- * Bouwt de subcommands waarmee staff een bestaande gang beheert.
- *
- * @param {import('discord.js').SlashCommandBuilder} builder De hoofdbouwer.
- * @returns {import('discord.js').SlashCommandBuilder} Dezelfde bouwer.
- */
-function addBeheerSubcommands(builder) {
-  builder.addSubcommand((sub) => addGangOption(sub
-    .setName('hernoemen')
-    .setDescription('Wijzig de naam, emoji en/of afkorting van een gang (staff)'), true)
-    .addStringOption((o) => o.setName('naam').setDescription('Nieuwe naam').setRequired(false))
-    .addStringOption((o) => o.setName('emoji').setDescription('Nieuwe emoji').setRequired(false))
-    .addStringOption((o) => o.setName('afkorting').setDescription('Nieuwe korte naam voor in de kanaalnamen, bv. gsf').setRequired(false))
-    .addBooleanOption((o) => o.setName('afkorting_weghalen').setDescription('Haal de afkorting weg; de kanaalnamen komen weer uit de volledige naam').setRequired(false)));
-
-  builder.addSubcommand((sub) => addGangOption(sub
-    .setName('limiet')
-    .setDescription('Pas de limieten van een gang aan (staff)'), true)
-    .addIntegerOption((o) => o.setName('leden').setDescription('Max. aantal leden (boss en underboss tellen mee)').setMinValue(1).setMaxValue(100))
-    .addIntegerOption((o) => o.setName('bosses').setDescription('Max. aantal bosses').setMinValue(1).setMaxValue(10))
-    .addIntegerOption((o) => o.setName('underbosses').setDescription('Max. aantal underbosses').setMinValue(0).setMaxValue(10)));
 
   // Geen gang-optie: promoveren en degraderen gaan over de gang waar het gekozen lid al in
   // zit, en niemand zit in twee gangs tegelijk. Zie resolveGangOfTarget.
@@ -1694,9 +1653,55 @@ function addBeheerSubcommands(builder) {
     .setDescription('Een trede lager: boss > underboss > lid')
     .addUserOption((o) => o.setName('lid').setDescription('Wie degradeer je?').setRequired(true)));
 
+  return builder;
+}
+
+/**
+ * Bouwt de subcommands van /gangbeheer: alles waar je staff voor moet zijn.
+ *
+ * Deze zitten bewust in een EIGEN hoofdcommando. Discord kan losse subcommands niet
+ * verbergen - setDefaultMemberPermissions geldt altijd voor het hele commando - dus zolang
+ * ze onder /gang hingen, zag elke speler ze in de lijst staan.
+ *
+ * @param {import('discord.js').SlashCommandBuilder} builder De hoofdbouwer.
+ * @returns {import('discord.js').SlashCommandBuilder} Dezelfde bouwer.
+ */
+function addBeheerSubcommands(builder) {
+  builder.addSubcommand((sub) => sub
+    .setName('aanmaken')
+    .setDescription('Maak een nieuwe gang aan')
+    .addStringOption((o) => o.setName('naam').setDescription('Naam van de gang, 2 tot 40 tekens').setRequired(true))
+    .addStringOption((o) => o.setName('emoji').setDescription('Precies 1 emoji voor categorie en kanalen').setRequired(true))
+    .addStringOption((o) => o.setName('afkorting').setDescription('Korte naam voor in de kanaalnamen, bv. gsf (leeg = de volledige naam)').setRequired(false))
+    .addUserOption((o) => o.setName('boss').setDescription('Wie wordt meteen de boss?').setRequired(false))
+    .addIntegerOption((o) => o.setName('ledenlimiet').setDescription('Max. aantal leden (leeg = de serverstandaard uit /setup limieten)').setMinValue(1).setMaxValue(100)));
+
+  builder.addSubcommand((sub) => addGangOption(sub
+    .setName('verwijderen')
+    .setDescription('Verwijder een gang met alles erin'), true)
+    .addBooleanOption((o) => o
+      .setName('rollen_verwijderen')
+      .setDescription('Ook de 3 rollen verwijderen? (standaard ja)')
+      .setRequired(false)));
+
+  builder.addSubcommand((sub) => addGangOption(sub
+    .setName('hernoemen')
+    .setDescription('Wijzig de naam, emoji en/of afkorting van een gang'), true)
+    .addStringOption((o) => o.setName('naam').setDescription('Nieuwe naam').setRequired(false))
+    .addStringOption((o) => o.setName('emoji').setDescription('Nieuwe emoji').setRequired(false))
+    .addStringOption((o) => o.setName('afkorting').setDescription('Nieuwe korte naam voor in de kanaalnamen, bv. gsf').setRequired(false))
+    .addBooleanOption((o) => o.setName('afkorting_weghalen').setDescription('Haal de afkorting weg; de kanaalnamen komen weer uit de volledige naam').setRequired(false)));
+
+  builder.addSubcommand((sub) => addGangOption(sub
+    .setName('limiet')
+    .setDescription('Pas de limieten van een gang aan'), true)
+    .addIntegerOption((o) => o.setName('leden').setDescription('Max. aantal leden (boss en underboss tellen mee)').setMinValue(1).setMaxValue(100))
+    .addIntegerOption((o) => o.setName('bosses').setDescription('Max. aantal bosses').setMinValue(1).setMaxValue(10))
+    .addIntegerOption((o) => o.setName('underbosses').setDescription('Max. aantal underbosses').setMinValue(0).setMaxValue(10)));
+
   builder.addSubcommand((sub) => addGangOption(sub
     .setName('herstel')
-    .setDescription('Maak ontbrekende rollen/kanalen opnieuw aan en herstel permissies (staff)'), true));
+    .setDescription('Maak ontbrekende rollen/kanalen opnieuw aan en herstel permissies'), true));
 
   return builder;
 }
@@ -1742,20 +1747,20 @@ function addLedenSubcommands(builder) {
 }
 
 /**
- * De volledige /gang-definitie. Bewust GEEN setDefaultMemberPermissions op de root:
- * gangleiders moeten `info`, `aannemen` en `ontslaan` kunnen gebruiken. De
- * rechtencontrole gebeurt per subcommand in code.
+ * De /gang-definitie: alles wat gangleden en gangleiding gebruiken. Bewust GEEN
+ * setDefaultMemberPermissions: iedereen moet hier bij kunnen. De rechtencontrole gebeurt
+ * per subcommand in code (een gewoon lid krijgt bijvoorbeeld geen /gang promoveer voor
+ * elkaar).
  *
  * @returns {SlashCommandBuilder} De opgebouwde definitie.
  */
 function buildData() {
   const builder = new SlashCommandBuilder()
     .setName('gang')
-    .setDescription('Beheer de gangs op deze server')
+    .setDescription('Je gang: bezetting bekijken, leden aannemen en promoveren')
     .setContexts(InteractionContextType.Guild);
 
   addBasisSubcommands(builder);
-  addBeheerSubcommands(builder);
   addLedenSubcommands(builder);
   return builder;
 }
@@ -1764,19 +1769,48 @@ function buildData() {
 const data = buildData();
 
 /** Koppeling van subcommandnaam naar handler. */
+/**
+ * De /gangbeheer-definitie: de subcommands waar je staff voor moet zijn.
+ *
+ * setDefaultMemberPermissions(ManageGuild) zorgt dat Discord dit commando alleen laat zien
+ * aan wie 'Server beheren' heeft. Wil je het ook aan je staffrol tonen, voeg die rol dan
+ * toe in Serverinstellingen > Integraties > OWC Gangbot; Discord kan niet zelf op de
+ * staffrol uit /setup staffrol filteren.
+ *
+ * Het verbergen is puur cosmetisch: elke handler controleert nog steeds zelf of de
+ * aanroeper staff is, want een rechtenoverride in Discord kan altijd verkeerd staan.
+ *
+ * @returns {SlashCommandBuilder} De opgebouwde definitie.
+ */
+function buildBeheerData() {
+  const builder = new SlashCommandBuilder()
+    .setName('gangbeheer')
+    .setDescription('Gangs aanmaken, hernoemen, herstellen en verwijderen (staff)')
+    .setContexts(InteractionContextType.Guild)
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild);
+
+  addBeheerSubcommands(builder);
+  return builder;
+}
+
+/** Subcommands van /gang. */
 const HANDLERS = {
-  aanmaken: handleAanmaken,
-  verwijderen: handleVerwijderen,
   lijst: handleLijst,
   info: handleInfo,
-  hernoemen: handleHernoemen,
-  limiet: handleLimiet,
   promoveer: handlePromoveer,
   degradeer: handleDegradeer,
   aannemen: handleAannemen,
   ontslaan: handleOntslaan,
-  herstel: handleHerstel,
   historie: handleHistorie,
+};
+
+/** Subcommands van /gangbeheer. */
+const BEHEER_HANDLERS = {
+  aanmaken: handleAanmaken,
+  verwijderen: handleVerwijderen,
+  hernoemen: handleHernoemen,
+  limiet: handleLimiet,
+  herstel: handleHerstel,
 };
 
 // ---------------------------------------------------------------------------
@@ -1791,7 +1825,7 @@ const HANDLERS = {
  * @param {import('discord.js').ChatInputCommandInteraction} interaction De interactie.
  * @returns {Promise<void>}
  */
-async function execute(interaction) {
+async function runSubcommand(interaction, handlers, commandNaam) {
   if (!interaction.inGuild() || !interaction.guild) {
     await sendError(
       interaction,
@@ -1802,7 +1836,7 @@ async function execute(interaction) {
   }
 
   const sub = interaction.options.getSubcommand(false);
-  const handler = sub ? HANDLERS[sub] : null;
+  const handler = sub ? handlers[sub] : null;
   if (!handler) {
     await sendError(
       interaction,
@@ -1817,7 +1851,7 @@ async function execute(interaction) {
     const ctx = await buildContext(interaction);
     await handler(ctx);
   } catch (err) {
-    logger.error(`/gang ${sub}: onverwachte fout.`, err);
+    logger.error(`/${commandNaam} ${sub}: onverwachte fout.`, err);
     await sendError(
       interaction,
       'Er ging iets mis',
@@ -1825,6 +1859,27 @@ async function execute(interaction) {
         + ' Probeer het opnieuw; blijft het misgaan, meld het dan bij de staff.',
     );
   }
+}
+
+/**
+ * Voert /gang uit.
+ *
+ * @param {import('discord.js').ChatInputCommandInteraction} interaction De interactie.
+ * @returns {Promise<void>}
+ */
+async function execute(interaction) {
+  return runSubcommand(interaction, HANDLERS, 'gang');
+}
+
+/**
+ * Voert /gangbeheer uit. Dezelfde afhandelaars en dezelfde rechtencontroles; alleen de
+ * verzameling subcommands verschilt.
+ *
+ * @param {import('discord.js').ChatInputCommandInteraction} interaction De interactie.
+ * @returns {Promise<void>}
+ */
+async function executeBeheer(interaction) {
+  return runSubcommand(interaction, BEHEER_HANDLERS, 'gangbeheer');
 }
 
 /**
@@ -1889,4 +1944,13 @@ function matchRank(gang, needle) {
 
 // handleButton hoort bij de export: events/interactionCreate.js geeft de knoppen van
 // /gang verwijderen hierheen door en handelt ze zelf niet meer af (één eigenaar).
-module.exports = { data, execute, autocomplete, handleButton };
+module.exports = {
+  data,
+  execute,
+  autocomplete,
+  handleButton,
+  // Voor commands/gangbeheer.js, dat hetzelfde bestand hergebruikt in plaats van de
+  // afhandelaars te dupliceren.
+  beheerData: buildBeheerData(),
+  executeBeheer,
+};
