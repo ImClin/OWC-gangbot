@@ -2,6 +2,9 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('../lib/logger');
 
+/** Hoeveel dagelijkse back-ups van het databestand er bewaard blijven. */
+const BACKUP_DAGEN = 7;
+
 /**
  * Blokkeert de thread een aantal milliseconden. Nodig omdat het opslaan synchroon is
  * (zodat een crash nooit halverwege een schrijfactie valt) en er dus geen await bestaat
@@ -66,6 +69,8 @@ class JsonStore {
     this.filePath = path.resolve(filePath);
     /** @type {string} Absoluut pad naar het tijdelijke schrijfbestand. */
     this.tmpPath = `${this.filePath}.tmp`;
+    /** @type {string|null} Datum (YYYY-MM-DD) van de laatste back-up in deze sessie. */
+    this.laatsteBackup = null;
     /** @type {object} Standaardinhoud. */
     this.defaults = isPlainObject(defaults) ? defaults : {};
     /** @type {object|null} In-memory cache. */
@@ -197,6 +202,9 @@ class JsonStore {
   _persist() {
     try {
       fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
+      // Eerst een kopie van de nog ONgewijzigde versie wegzetten: de back-up van vandaag
+      // hoort de stand van gisteren te bevatten, niet de wijziging die we net doen.
+      this._backupDaily();
       fs.writeFileSync(this.tmpPath, `${JSON.stringify(this.data, null, 2)}\n`, 'utf8');
       this._replaceTarget();
       return true;
@@ -204,6 +212,76 @@ class JsonStore {
       logger.error(`JsonStore: opslaan van ${this.filePath} is mislukt: ${err.message}`);
       this._cleanupTmp();
       return false;
+    }
+  }
+
+  /**
+   * Zet hoogstens één keer per dag een kopie van het databestand weg als
+   * `<bestand>.backup-YYYY-MM-DD`, en ruimt kopieën op die ouder zijn dan BACKUP_DAGEN.
+   *
+   * WAAROM: alle gangs, rollen, kanalen en de hele historie staan in dit ene bestand. Ging
+   * er iets mis - een verkeerde /gangbeheer verwijderen, een halve schijf, een verkeerd
+   * teruggezette map - dan was er tot nu toe niets om op terug te vallen: het vangnet dat
+   * er al was (_backupCorrupt) springt alleen aan bij ONLEESBARE JSON, niet bij een prima
+   * leesbaar bestand met de verkeerde inhoud.
+   *
+   * Gebeurt bij de eerste schrijfactie van de dag, zodat er geen timer of extra proces
+   * nodig is. Faalt stil met een warn: een mislukte back-up mag de schrijfactie zelf nooit
+   * tegenhouden.
+   *
+   * @private
+   * @returns {void}
+   */
+  _backupDaily() {
+    const vandaag = new Date().toISOString().slice(0, 10);
+    if (this.laatsteBackup === vandaag) return;
+
+    try {
+      if (!fs.existsSync(this.filePath)) {
+        // Nog geen databestand (eerste start): niets om te kopiëren, en morgen weer proberen.
+        return;
+      }
+
+      const doel = `${this.filePath}.backup-${vandaag}`;
+      if (!fs.existsSync(doel)) {
+        fs.copyFileSync(this.filePath, doel);
+        logger.info(`JsonStore: dagelijkse back-up gemaakt (${path.basename(doel)}).`);
+      }
+      this.laatsteBackup = vandaag;
+      this._pruneBackups();
+    } catch (err) {
+      logger.warn(`JsonStore: dagelijkse back-up mislukt (${err.message}); het opslaan gaat gewoon door.`);
+      // laatsteBackup NIET zetten: bij de volgende schrijfactie mag hij het opnieuw proberen.
+    }
+  }
+
+  /**
+   * Houdt de laatste BACKUP_DAGEN kopieën over en verwijdert de rest.
+   *
+   * @private
+   * @returns {void}
+   */
+  _pruneBackups() {
+    const map = path.dirname(this.filePath);
+    const prefix = `${path.basename(this.filePath)}.backup-`;
+
+    let namen = [];
+    try {
+      namen = fs.readdirSync(map).filter((naam) => naam.startsWith(prefix));
+    } catch (err) {
+      logger.debug(`JsonStore: back-ups opsommen mislukt (${err.message}).`);
+      return;
+    }
+
+    // De naam eindigt op een ISO-datum, dus alfabetisch sorteren is ook chronologisch.
+    const teveel = namen.sort().slice(0, Math.max(0, namen.length - BACKUP_DAGEN));
+    for (const naam of teveel) {
+      try {
+        fs.unlinkSync(path.join(map, naam));
+        logger.debug(`JsonStore: oude back-up ${naam} verwijderd.`);
+      } catch (err) {
+        logger.debug(`JsonStore: ${naam} verwijderen mislukt (${err.message}).`);
+      }
     }
   }
 

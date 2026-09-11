@@ -4,8 +4,11 @@ node_modules/
 # Geheimen: bot-token en ID's. Deel dit bestand nooit.
 .env
 
-# Opslag van de bot (data/owc.json en back-ups van corrupte bestanden)
+# Opslag van de bot: data/owc.json, de dagelijkse back-ups (owc.json.backup-<datum>)
+# en de kopie die van een corrupt bestand gemaakt wordt.
 data/
+*.backup-*
+*.corrupt-*
 
 # Logbestanden
 *.log

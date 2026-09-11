@@ -1109,15 +1109,55 @@ daartussen.
 
 ### Back-up maken
 
-Kopieer `data/owc.json` regelmatig naar een veilige plek. Dat mag terwijl de bot draait.
+**De bot doet dit zelf.** Bij de eerste wijziging van elke dag zet hij een kopie neer naast
+het databestand, vóórdat die wijziging erin gaat:
+
+```
+owc.json
+owc.json.backup-2026-09-12
+owc.json.backup-2026-09-11
+...
+```
+
+Elke kopie bevat dus de stand aan het **einde van de vorige dag**. De laatste **7** blijven
+bewaard, oudere ruimt de bot op. Lukt het kopiëren niet (volle schijf, geen schrijfrecht),
+dan komt er een waarschuwing in de logs en gaat het opslaan gewoon door — een mislukte
+back-up mag nooit een wijziging tegenhouden.
+
+Dat vervangt de losse `.corrupt-`-kopie niet: die springt alleen aan bij een **onleesbaar**
+bestand. De dagelijkse back-up helpt juist bij een prima leesbaar bestand met de verkeerde
+inhoud, zoals een gang die per ongeluk verwijderd is.
+
+> **Zet ze wel ergens anders neer.** Ze staan naast het origineel, dus bij een kapotte schijf
+> of een verwijderde map ben je ze samen kwijt. Kopieer de datamap af en toe naar een andere
+> plek.
+
+Zelf een kopie maken kan uiteraard ook; dat mag terwijl de bot draait.
 
 ```
 copy data\owc.json data\owc-backup-2026-09-10.json      (Windows)
 cp data/owc.json data/owc-backup-2026-09-10.json        (Linux / macOS)
 ```
 
-Maak in elk geval een back-up **voordat** je de bot verplaatst, bijwerkt of opnieuw
-installeert.
+Maak in elk geval zelf een back-up **voordat** je de bot verplaatst, bijwerkt of opnieuw
+installeert — dan wacht je niet op de dagelijkse.
+
+### De bot meldt het als je iets weggooit
+
+Verwijder je in Discord een gangkanaal, een gangcategorie of een gangrol, dan komt daar
+meteen een melding over in het logkanaal, met het commando dat het rechtzet:
+
+> ⚠️ **De gangrol van Rayuza is verwijderd**
+> Iedereen die bij **Rayuza** zat is daarmee zijn gangrol kwijt. De bezetting klopt niet meer
+> en die leden komen de gangkanalen niet meer in.
+> Herstellen: `/gangbeheer herstel gang:Rayuza`
+
+Dat geldt ook voor de kanalen en rollen uit `/setup`: het aanname-, ontslag-, log- en
+dashboardkanaal, de leidingkanalen, de gedeelde categorieën, en de staff-, meld-, bodem- en
+extrarollen. Kanalen en rollen die niets met het gangbeheer te maken hebben, negeert de bot.
+
+De bot **wist het opgeslagen id niet**. Juist daaraan ziet `/gangbeheer herstel` wat er
+ontbreekt en wat het opnieuw moet aanmaken.
 
 ### Terugzetten
 
