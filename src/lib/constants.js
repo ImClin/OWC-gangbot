@@ -86,21 +86,21 @@ const ROLE_COLORS = {
 
 /**
  * Welke rollen Discord apart bovenaan de ledenlijst zet ("Rolleden los van online leden
- * weergeven"). Per gang staat er dan een eigen kopje in de ledenlijst.
+ * weergeven"). Elke gang krijgt zo eigen kopjes in de ledenlijst.
  *
- * Alleen de gangrol staat aan: dat geeft één kopje per gang, met de hele gang eronder.
- * Zet je boss en underboss er ook op, dan krijg je drie kopjes per gang - wie de bossrol
- * draagt verdwijnt dan uit het kopje van zijn eigen gang, want Discord toont iemand alleen
- * onder de hoogste rol die apart wordt weergegeven.
+ * Alle drie staan aan: Boss, Underboss en de gangrol krijgen elk een eigen kopje. Let op
+ * hoe Discord dat toont: iemand staat maar onder EEN kopje, namelijk dat van zijn hoogste
+ * apart weergegeven rol. Een boss verschijnt dus onder "<Gang> Boss" en niet meer onder
+ * "<Gang>" - het kopje van de gangrol houdt de leden over die geen leiding zijn.
  *
  * Aanpassen? Zet de waarde hier om en draai daarna `/gangbeheer rolweergave`; dat zet de
- * instelling van alle bestaande gangrollen in één keer goed.
+ * instelling van alle bestaande gangrollen in één keer goed, beide kanten op.
  * @type {Readonly<Record<'gang'|'boss'|'underboss', boolean>>}
  */
 const ROLE_HOIST = {
   gang: true,
-  boss: false,
-  underboss: false,
+  boss: true,
+  underboss: true,
 };
 
 /** Achtervoegsels achter de gangnaam bij het maken van de rollen. */

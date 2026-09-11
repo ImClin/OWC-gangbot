@@ -948,17 +948,27 @@ gang hetzelfde; ze staan alleen in een andere categorie.
 De rollen zijn **mentionable** en hebben **zelf geen serverrechten** - alle toegang wordt
 per kanaal geregeld.
 
-De **gangrol** wordt apart weergegeven in de ledenlijst: elke gang krijgt daar een eigen
-kopje met al zijn leden eronder. De boss- en underbossrol niet, want Discord zet iemand
-maar onder één kopje - dat van zijn hoogste apart weergegeven rol. Zou je ze alle drie
-apart zetten, dan verdwijnt de boss juist uit het kopje van zijn eigen gang.
+Alle drie de rollen worden **apart weergegeven** in de ledenlijst, dus per gang staan er
+drie kopjes:
 
-> **Liever toch drie kopjes per gang?** Zet `boss` en `underboss` in `ROLE_HOIST`
-> ([src/lib/constants.js](src/lib/constants.js)) op `true` en draai daarna
-> `/gangbeheer rolweergave`.
+```
+Rayuza Boss        — 1
+Rayuza Underboss   — 2
+Rayuza             — 19   (de leden die geen leiding zijn)
+```
+
+Discord zet iemand onder **één** kopje: dat van zijn hoogste apart weergegeven rol. De boss
+staat dus onder `Rayuza Boss` en niet óók onder `Rayuza`. De aantallen per kopje tellen
+daardoor niet op tot de ledenlimiet; die telling doe je met `/gang info`.
+
+> **Liever één kopje per gang?** Zet `boss` en `underboss` in `ROLE_HOIST`
+> ([src/lib/constants.js](src/lib/constants.js)) op `false` en draai daarna
+> `/gangbeheer rolweergave`. Die migratie werkt beide kanten op.
 
 > **Gangs van vóór deze versie** staan nog niet goed: draai eenmalig
-> `/gangbeheer rolweergave`. Dat loopt alle gangs langs en slaat over wat al klopt.
+> `/gangbeheer rolweergave`. Dat loopt alle gangs uit `owc.json` langs en slaat over wat al
+> klopt. Rollen die je met de hand hebt gemaakt en die de bot niet kent, blijven buiten
+> schot - die zet je zelf om in Serverinstellingen → Rollen.
 
 De bot zet de drie rollen meteen als **één blokje** in de rollenlijst, met de hoogste rang
 bovenaan:
