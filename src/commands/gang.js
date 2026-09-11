@@ -1507,14 +1507,32 @@ async function handleHerstel(ctx) {
   const { interaction, guild } = ctx;
   if (!await ensureStaff(ctx, 'een gang herstellen')) return;
 
-  const found = resolveGangOption(ctx, true);
+  // De gang-optie is optioneel: leeg betekent "alle gangs". Dat is de route na een
+  // wijziging in de permissiesets, waarbij elke gang zijn kanaalrechten opnieuw moet
+  // krijgen zonder dat je ze een voor een langs hoeft.
+  const found = resolveGangOption(ctx, false);
   if (!found.ok) {
     await sendError(interaction, found.titel || 'Gang niet gevonden', found.error);
     return;
   }
   if (!await deferEphemeral(interaction)) return;
 
-  const gang = found.gang;
+  if (found.gang) {
+    await herstelEenGang(ctx, found.gang);
+    return;
+  }
+  await herstelAlleGangs(ctx);
+}
+
+/**
+ * Herstelt één gang en toont alles wat er gewijzigd is.
+ *
+ * @param {CommandContext} ctx De context.
+ * @param {object} gang Het GangRecord.
+ * @returns {Promise<void>}
+ */
+async function herstelEenGang(ctx, gang) {
+  const { interaction, guild } = ctx;
   const result = await gangService.repairGang(guild, gang, { actorId: interaction.user.id });
   const regels = Array.isArray(result.changes) && result.changes.length
     ? result.changes.map((regel) => `• ${regel}`).join('\n')
@@ -1533,6 +1551,60 @@ async function handleHerstel(ctx) {
     `Herstel uitgevoerd — ${gang.name}`,
     truncate(regels, 3800),
   ));
+  refreshDashboard(guild);
+}
+
+/**
+ * Herstelt ALLE gangs achter elkaar en vat per gang samen wat er gebeurd is.
+ *
+ * Bewust één voor één in plaats van parallel: elke gang betekent tientallen API-calls, en
+ * Discord knijpt bij te veel tegelijk af. Een gang die faalt stopt de rest niet - dat zou
+ * betekenen dat een halve server blijft hangen op één kapotte gang.
+ *
+ * @param {CommandContext} ctx De context.
+ * @returns {Promise<void>}
+ */
+async function herstelAlleGangs(ctx) {
+  const { interaction, guild } = ctx;
+  const gangs = ctx.gangs;
+
+  if (!gangs.length) {
+    await sendEmbed(interaction, infoEmbed(
+      'Nog geen gangs',
+      'Er is nog niets om te herstellen. Maak er een aan met `/gangbeheer aanmaken`.',
+    ));
+    return;
+  }
+
+  const regels = [];
+  let gewijzigd = 0;
+  let mislukt = 0;
+  for (const gang of gangs) {
+    // eslint-disable-next-line no-await-in-loop
+    const result = await gangService.repairGang(guild, gang, { actorId: interaction.user.id });
+    const aantal = Array.isArray(result.changes) ? result.changes.length : 0;
+    if (!result.ok) {
+      mislukt += 1;
+      regels.push(`❌ **${gang.name}** — ${truncate(String(result.error || 'onbekende fout'), 200)}`);
+      continue;
+    }
+    gewijzigd += aantal;
+    regels.push(aantal
+      ? `✅ **${gang.name}** — ${aantal} aanpassing(en)`
+      : `✅ **${gang.name}** — stond al goed`);
+  }
+
+  const kop = mislukt
+    ? `${gangs.length} gang(s) nagelopen, ${gewijzigd} aanpassing(en), ${mislukt} niet afgerond.`
+    : `${gangs.length} gang(s) nagelopen, ${gewijzigd} aanpassing(en).`;
+  const staart = mislukt
+    ? 'Draai `/gangbeheer herstel gang:<naam>` op de gangs met een ❌ om te zien wat daar misging.'
+    : 'Zie je het resultaat niet meteen in Discord? Herlaad met Ctrl+R.';
+  const body = truncate([kop, regels.join('\n'), staart].join('\n\n'), 3800);
+
+  await sendEmbed(interaction, mislukt
+    ? warningEmbed('Herstel uitgevoerd, niet overal geslaagd', body)
+    : successEmbed('Herstel uitgevoerd voor alle gangs', body));
   refreshDashboard(guild);
 }
 
@@ -1701,7 +1773,8 @@ function addBeheerSubcommands(builder) {
 
   builder.addSubcommand((sub) => addGangOption(sub
     .setName('herstel')
-    .setDescription('Maak ontbrekende rollen/kanalen opnieuw aan en herstel permissies'), true));
+    .setDescription('Herstel rollen, kanalen en permissies (leeg = alle gangs)'), false,
+  'Welke gang? Laat leeg om alle gangs te herstellen'));
 
   return builder;
 }

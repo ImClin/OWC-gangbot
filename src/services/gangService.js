@@ -95,10 +95,10 @@ const PERMISSION_LABELS_NL = new Map([
  */
 const ALL_OVERWRITE_BITS = [...new Set([
   ...Object.values(CATEGORY_PERMS).flatMap((bits) => (Array.isArray(bits) ? [...bits] : [])),
-  ...Object.values(CHANNEL_PERMS).flatMap((perms) => [
-    ...(perms?.gangDeny || []),
-    ...(perms?.leaderAllow || []),
-  ]),
+  // Alle lijsten van een kanaalset, niet een handjevol met de naam erbij: zo valt een
+  // nieuwe sleutel (leaderDeny, staffAllow, ...) nooit buiten deze controle.
+  ...Object.values(CHANNEL_PERMS).flatMap((perms) => Object.values(perms || {})
+    .flatMap((bits) => (Array.isArray(bits) ? [...bits] : []))),
 ])];
 
 /**
@@ -707,10 +707,27 @@ function buildChannelOverwrites(guild, gang, kind, guildConfig) {
     }
   }
 
+  if (extra.leaderDeny?.length) {
+    for (const leaderRoleId of [gang?.bossRoleId, gang?.underbossRoleId]) {
+      weiger(ensure(leaderRoleId, OverwriteType.Role), extra.leaderDeny);
+    }
+  }
+
   if (extra.leaderAllow?.length) {
     for (const leaderRoleId of [gang?.bossRoleId, gang?.underbossRoleId]) {
       const leaderEntry = ensure(leaderRoleId, OverwriteType.Role);
       if (leaderEntry) leaderEntry.allow.push(...allowedBits(botPerms, extra.leaderAllow));
+    }
+  }
+
+  // De staffrol als laatste: wat staff hier mag, mag hij ondanks alle weigeringen hierboven.
+  if (extra.staffAllow?.length) {
+    const staffEntry = ensure(guildConfig?.staffRoleId, OverwriteType.Role);
+    if (staffEntry) {
+      const bits = allowedBits(botPerms, extra.staffAllow);
+      const set = new Set(bits);
+      staffEntry.deny = staffEntry.deny.filter((bit) => !set.has(bit));
+      staffEntry.allow.push(...bits);
     }
   }
 

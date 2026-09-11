@@ -226,11 +226,18 @@ const CATEGORY_PERMS = {
  * Kanaal-specifieke overwrites bovenop CATEGORY_PERMS, per blueprint-kind.
  * Kanalen die hier niet in staan erven simpelweg alles van de categorie.
  *
- * `gangDeny` gaat op de gangrol, `leaderAllow` op de boss- en underbossrol, `everyoneDeny`
- * op @everyone en `globalDeny` op de extrarollen uit /setup extrarollen. Een recht dat in
- * een deny-lijst staat wordt eerst uit de allow van diezelfde rol gehaald, zodat er nooit
- * een overwrite ontstaat die een recht tegelijk toestaat en weigert.
- * @type {Readonly<Record<string, Readonly<Record<'gangDeny'|'leaderAllow'|'everyoneDeny'|'globalDeny', ReadonlyArray<bigint>>>>>}
+ * `gangDeny` gaat op de gangrol, `leaderAllow` en `leaderDeny` op de boss- en underbossrol,
+ * `staffAllow` op de staffrol, `everyoneDeny` op @everyone en `globalDeny` op de extrarollen
+ * uit /setup extrarollen. Een recht dat in een deny-lijst staat wordt eerst uit de allow van
+ * diezelfde rol gehaald, zodat er nooit een overwrite ontstaat die een recht tegelijk
+ * toestaat en weigert.
+ *
+ * WAAROM WEIGEREN EN NIET GEWOON WEGLATEN: de bot schrijft overwrites weg met
+ * `permissionOverwrites.edit()`, en dat is een merge. Een recht dat je uit een allow-lijst
+ * haalt verdwijnt daarmee NIET van een kanaal dat het al had staan - je moet het expliciet
+ * weigeren. Vandaar dat het oortje boss en underboss het spreekrecht actief afneemt in
+ * plaats van het alleen niet meer uit te delen.
+ * @type {Readonly<Record<string, Readonly<Record<'gangDeny'|'leaderAllow'|'leaderDeny'|'staffAllow'|'everyoneDeny'|'globalDeny', ReadonlyArray<bigint>>>>>}
  */
 const CHANNEL_PERMS = {
   // Mededelingen: leden lezen alleen, boss en underboss mogen posten en opruimen.
@@ -257,21 +264,23 @@ const CHANNEL_PERMS = {
     leaderAllow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages],
   },
 
-  // Oortje: NIEMAND praat hier, ook de leiding niet. Het is een luisterkanaal - het praten
-  // gebeurt in-game, dit kanaal is alleen om erbij te zitten.
+  // Oortje: alleen STAFF praat hier. Het is een luisterkanaal - het praten gebeurt in-game,
+  // dit kanaal is alleen om erbij te zitten.
   //
-  // De deny moet op elke rol apart, want Discord laat een allow op de ene rol winnen van
-  // een deny op een andere. @everyone vangt iedereen zonder eigen spreekrecht (zoals de
-  // staffrol), gangDeny de gangrol (die ook boss en underboss dragen) en globalDeny de
-  // extrarollen, die via CATEGORY_PERMS.global anders wél Speak zouden houden.
+  // De weigering moet op elke rol apart, want Discord laat een allow op de ene rol winnen
+  // van een deny op een andere. @everyone vangt iedereen zonder eigen spreekrecht,
+  // gangDeny de gangrol, leaderDeny de boss- en underbossrol (die hadden Speak eerder
+  // expliciet toegestaan, en een merge haalt zo'n allow er nooit vanzelf af) en globalDeny
+  // de extrarollen, die via CATEGORY_PERMS.global anders Speak zouden houden.
   //
   // Wat hier niet tegen helpt: het serverrecht Beheerder. Dat negeert alle kanaalrechten,
   // dus een admin kan altijd praten.
   oortje: {
     everyoneDeny: [PermissionFlagsBits.Speak, PermissionFlagsBits.Stream],
     gangDeny: [PermissionFlagsBits.Speak, PermissionFlagsBits.Stream],
+    leaderDeny: [PermissionFlagsBits.Speak, PermissionFlagsBits.Stream],
     globalDeny: [PermissionFlagsBits.Speak, PermissionFlagsBits.Stream],
-    leaderAllow: [],
+    staffAllow: [PermissionFlagsBits.Speak, PermissionFlagsBits.Stream],
   },
 };
 

@@ -260,8 +260,8 @@ Rechten die de bot **uitdeelt** aan gangleden, leiding, staff en de extrarollen:
 | Bestanden toevoegen | Attach Files | Leden in de gangkanalen en `📷・media` |
 | Externe emoji gebruiken | Use External Emojis | Leden in de gangkanalen |
 | Deelnemen | Connect | Leden in `📞・oortje` |
-| Spreken | Speak | Niemand in het oortje — de bot zet dit recht daar voor iedereen dicht |
-| Streamen (Video) | Video / Stream | Niemand in het oortje, om dezelfde reden |
+| Spreken | Speak | Alleen de staffrol in het oortje; voor de rest zet de bot het daar dicht |
+| Streamen (Video) | Video / Stream | Alleen de staffrol in het oortje, om dezelfde reden |
 | Spraakactivering gebruiken | Use Voice Activity | Iedereen in het oortje |
 | Leden dempen | Mute Members | Boss en underboss in het oortje |
 | Leden doof zetten | Deafen Members | Alleen de boss |
@@ -563,7 +563,7 @@ Het staffgedeelte, in een **apart commando** zodat Discord het kan verbergen. Wi
 | `/gangbeheer verwijderen` | `gang`* (typ om te zoeken), `rollen_verwijderen` (ja/nee, standaard **ja**) | Verwijdert de categorie en alle kanalen van de gang. Met `rollen_verwijderen:ja` gaan ook de drie rollen weg. Je krijgt eerst een bevestigingsvraag met knoppen; die vervalt na 60 seconden en alleen jij kunt erop klikken. **Dit kan niet ongedaan gemaakt worden.** |
 | `/gangbeheer hernoemen` | `gang`*, `naam`, `emoji`, `afkorting`, `afkorting_weghalen` (ja/nee) | Wijzigt de naam, de emoji en/of de afkorting. De categorie, de drie rollen en de kanalen met de gangnaam erin worden meteen hernoemd. Met `afkorting_weghalen:ja` komen de kanaalnamen weer uit de volledige naam. |
 | `/gangbeheer limiet` | `gang`*, `leden` (1-100), `bosses` (1-10), `underbosses` (0-10) | Past de limieten van die ene gang aan. Wat je niet invult, blijft ongewijzigd. |
-| `/gangbeheer herstel` | `gang`* | Maakt ontbrekende rollen, de categorie en ontbrekende kanalen opnieuw aan, zet alle permissies terug zoals ze horen en zet de rollenlijst weer op volgorde. Je eerste hulp als er per ongeluk iets verwijderd is. |
+| `/gangbeheer herstel` | `gang` (optioneel; **leeg = alle gangs**) | Maakt ontbrekende rollen, de categorie en ontbrekende kanalen opnieuw aan, zet alle permissies terug zoals ze horen en zet de rollenlijst weer op volgorde. Je eerste hulp als er per ongeluk iets verwijderd is, én de manier om een wijziging in de permissies over alle bestaande gangs uit te rollen. Zonder `gang` loopt de bot ze een voor een langs en meldt hij per gang wat er veranderd is. |
 
 Bij elke `gang`-optie krijg je tijdens het typen suggesties (autocomplete): begin de naam
 te typen en kies uit de lijst.
@@ -994,7 +994,7 @@ het hieronder afwijkt, is dat expliciet ingesteld.
 | `💭・rayuza-chat` | Geen toegang | Lezen en schrijven | Lezen, schrijven, beheren | Lezen en schrijven |
 | `📷・media` | Geen toegang | Lezen, schrijven, bestanden | Lezen, schrijven, beheren | Lezen en schrijven |
 | `👤・dark-chat` | Geen toegang | **Geen toegang** | Lezen en schrijven | Lezen en schrijven |
-| `📞・rayuza-oortje` (spraak) | Geen toegang | Deelnemen en **meeluisteren**, niet praten | Deelnemen en meeluisteren, **niet praten**, wel muten en slepen | Deelnemen en meeluisteren, **niet praten** |
+| `📞・rayuza-oortje` (spraak) | Geen toegang | Deelnemen en **meeluisteren**, niet praten | Deelnemen en meeluisteren, **niet praten**, wel muten en slepen | Deelnemen, meeluisteren en **praten** |
 
 En buiten de gangcategorie, in de twee registers van de server:
 
@@ -1006,16 +1006,25 @@ En buiten de gangcategorie, in de twee registers van de server:
 
 - **💀・boss en 👤・dark-chat zijn alleen voor de leiding.** Gewone leden zien deze twee
   kanalen niet eens staan.
-- **In het oortje praat niemand.** Het is een luisterkanaal: je zit erbij, het praten
+- **In het oortje praat alleen staff.** Het is een luisterkanaal: je zit erbij, het praten
   gebeurt in-game. Iedereen kan binnenlopen en meeluisteren, maar geen enkele microfoon
-  doet het - ook die van de boss niet. De bot zet `Spreken` en `Video` daar dicht voor
-  `@everyone`, voor de gangrol en voor de extrarollen; dat moet apart per rol, want in
-  Discord wint een toestemming op de ene rol van een weigering op een andere.
+  doet het - ook die van de boss niet. De bot weigert `Spreken` en `Video` daar apart voor
+  `@everyone`, de gangrol, de boss- en underbossrol en de extrarollen, en geeft ze daarna
+  alleen aan de staffrol terug. Dat moet per rol, want in Discord wint een toestemming op
+  de ene rol van een weigering op een andere.
   Eén uitzondering die geen enkel kanaalrecht tegenhoudt: wie het serverrecht **Beheerder**
   heeft, kan altijd praten. Dat is Discord, niet de bot.
 - **Staff, OWC en wapendealers zien en mogen alles** in elke gang, ook het bosskanaal en
-  dark-chat. Praten in het oortje kunnen ook zij niet. De stafrol stel je in met
-  `/setup staffrol`; OWC en de wapendealers voeg je toe met `/setup extrarollen`.
+  dark-chat. In het oortje praat alleen de staffrol; OWC en de wapendealers luisteren daar
+  net als de rest alleen mee. De stafrol stel je in met `/setup staffrol`; OWC en de
+  wapendealers voeg je toe met `/setup extrarollen`.
+
+> **Rechten aangepast? Draai `/gangbeheer herstel` zonder gang.** De bot schrijft
+> kanaalrechten weg met een *merge*: een recht dat uit de lijst verdwijnt wordt daarmee niet
+> vanzelf ingetrokken op kanalen die het al hadden staan. Daarom worden rechten die weg
+> moeten actief geweigerd - en daarom moeten bestaande gangs één keer langs het herstel
+> voordat een wijziging overal geldt.
+
 - Waarom die rollen ook binnenkomen in kanalen die voor leden dichtstaan: Discord haalt
   eerst alle weigeringen weg en zet daarna alle toestemmingen erbij. Een toestemming op
   de ene rol wint dus van een weigering op een andere rol. Precies daarom staat de
