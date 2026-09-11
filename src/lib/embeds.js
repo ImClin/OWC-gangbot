@@ -460,6 +460,7 @@ function gangCreatedEmbed(gang, counts) {
   setDescriptionLines(embed, [
     g.categoryId ? `Categorie: <#${g.categoryId}>` : null,
     `Bezetting: ${text}`,
+    g.slug ? `Kanaalnamen: \`${g.slug}\`${g.abbreviation ? ' *(afkorting)*' : ''}` : null,
   ]);
 
   const roles = [
@@ -518,6 +519,7 @@ function gangInfoEmbed(gang, counts, guild) {
     g.categoryId
       ? `Categorie: ${category ? `<#${g.categoryId}>` : '*niet gevonden — gebruik `/gang herstel`*'}`
       : null,
+    g.slug ? `Kanaalnamen: \`${g.slug}\`${g.abbreviation ? ' *(afkorting)*' : ''}` : null,
     g.createdAt ? `Aangemaakt ${relTime(g.createdAt)}${g.createdBy ? ` door <@${g.createdBy}>` : ''}` : null,
   ]);
 

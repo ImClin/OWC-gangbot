@@ -27,6 +27,7 @@ const constants = require('../lib/constants');
  * @property {number} id
  * @property {string} name
  * @property {string} slug
+ * @property {string} abbreviation Afkorting voor de kanaalnamen ('' = de volledige naam).
  * @property {string} emoji
  * @property {string|null} categoryId
  * @property {string|null} roleId
@@ -357,9 +358,12 @@ function normalizeGang(raw, cfg) {
   const out = { ...src };
   out.id = toInt(src.id, 0, 0);
   out.name = typeof src.name === 'string' ? src.name.trim() : '';
+  // De afkorting is wat de beheerder intikte ('GSF'); de slug is wat daarvan in de
+  // kanaalnamen terechtkomt ('gsf'). Zonder afkorting komt de slug uit de volledige naam.
+  out.abbreviation = typeof src.abbreviation === 'string' ? src.abbreviation.trim() : '';
   out.slug = typeof src.slug === 'string' && src.slug.trim()
     ? src.slug.trim().toLowerCase()
-    : fallbackSlug(out.name);
+    : fallbackSlug(out.abbreviation || out.name);
   out.emoji = typeof src.emoji === 'string' ? src.emoji.trim() : '';
   out.categoryId = asId(src.categoryId);
   out.roleId = asId(src.roleId);

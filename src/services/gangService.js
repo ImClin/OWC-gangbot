@@ -852,15 +852,29 @@ function limitOrDefault(value, fallback, min) {
 }
 
 /**
- * Controleert naam en emoji en of de naam en de bijbehorende slug nog vrij zijn.
+ * Minimale en maximale lengte van een afkorting, in tekens zoals ze ingetikt worden.
+ * De slug die eruit komt wordt daarna nog door slugify afgetopt.
+ */
+const MIN_ABBREVIATION_LENGTH = 2;
+const MAX_ABBREVIATION_LENGTH = 20;
+
+/**
+ * Controleert naam, emoji en de optionele afkorting, en of de naam en de bijbehorende slug
+ * nog vrij zijn.
+ *
+ * De slug bepaalt de kanaalnamen. Zonder afkorting komt die uit de volledige naam; met
+ * afkorting uit de afkorting, zodat "Grove Street Family" kanalen als `gsf-chat` krijgt in
+ * plaats van `grove-street-family-chat`. De rollen en de categorie houden altijd de
+ * volledige naam - daar is de lengte geen probleem.
  *
  * @param {import('discord.js').Guild} guild De server.
  * @param {string} rawName Ingevoerde naam.
  * @param {string} rawEmoji Ingevoerde emoji.
  * @param {number|null} ignoreGangId Gang-id die bij de uniekheidscheck overgeslagen wordt.
- * @returns {{ok: true, name: string, emoji: string, slug: string}|{ok: false, error: string}} Resultaat.
+ * @param {string} [rawAbbreviation] Ingevoerde afkorting ('' of weglaten = geen afkorting).
+ * @returns {{ok: true, name: string, emoji: string, slug: string, abbreviation: string}|{ok: false, error: string}} Resultaat.
  */
-function validateNameAndEmoji(guild, rawName, rawEmoji, ignoreGangId) {
+function validateNameAndEmoji(guild, rawName, rawEmoji, ignoreGangId, rawAbbreviation) {
   const name = typeof rawName === 'string' ? rawName.trim().replace(/\s+/g, ' ') : '';
   if (name.length < MIN_NAME_LENGTH || name.length > MAX_NAME_LENGTH) {
     return {
@@ -879,12 +893,27 @@ function validateNameAndEmoji(guild, rawName, rawEmoji, ignoreGangId) {
     };
   }
 
-  const slug = slugify(name);
+  const abbreviation = typeof rawAbbreviation === 'string' ? rawAbbreviation.trim().replace(/\s+/g, ' ') : '';
+  if (abbreviation
+    && (abbreviation.length < MIN_ABBREVIATION_LENGTH || abbreviation.length > MAX_ABBREVIATION_LENGTH)) {
+    return {
+      ok: false,
+      error: `De afkorting moet tussen ${MIN_ABBREVIATION_LENGTH} en ${MAX_ABBREVIATION_LENGTH} tekens`
+        + ` lang zijn (nu ${abbreviation.length}). Laat de afkorting weg om de volledige naam in de`
+        + ' kanaalnamen te gebruiken.',
+    };
+  }
+
+  // Met afkorting bepaalt die de kanaalnamen, anders de volledige naam.
+  const slug = slugify(abbreviation || name);
   if (!slug) {
     return {
       ok: false,
-      error: `Uit de naam "${name}" is geen bruikbare kanaalnaam te maken.`
-        + ' Gebruik minstens een letter of cijfer in de naam.',
+      error: abbreviation
+        ? `Uit de afkorting "${abbreviation}" is geen bruikbare kanaalnaam te maken.`
+          + ' Gebruik minstens een letter of cijfer in de afkorting.'
+        : `Uit de naam "${name}" is geen bruikbare kanaalnaam te maken.`
+          + ' Gebruik minstens een letter of cijfer in de naam.',
     };
   }
 
@@ -895,13 +924,16 @@ function validateNameAndEmoji(guild, rawName, rawEmoji, ignoreGangId) {
   if (gangs.some((gang) => gang.slug === slug)) {
     return {
       ok: false,
-      error: `De naam ${name} levert de kanaalnaam "${slug}" op en die is al in gebruik door een`
-        + ' andere gang. Kies een naam die duidelijker verschilt.',
+      error: abbreviation
+        ? `De afkorting ${abbreviation} levert de kanaalnaam "${slug}" op en die is al in gebruik`
+          + ' door een andere gang. Kies een andere afkorting.'
+        : `De naam ${name} levert de kanaalnaam "${slug}" op en die is al in gebruik door een`
+          + ' andere gang. Kies een naam die duidelijker verschilt, of geef een afkorting op.',
     };
   }
 
   return {
-    ok: true, name, emoji, slug,
+    ok: true, name, emoji, slug, abbreviation,
   };
 }
 
@@ -973,14 +1005,14 @@ function describeMember(member) {
  *
  * @param {import('discord.js').Guild} guild De server.
  * @param {object} opts Opties zoals meegegeven aan createGang.
- * @returns {{ok: true, name: string, emoji: string, slug: string, memberLimit: number}|{ok: false, error: string}} Resultaat.
+ * @returns {{ok: true, name: string, emoji: string, slug: string, abbreviation: string, memberLimit: number}|{ok: false, error: string}} Resultaat.
  */
 function validateCreateOptions(guild, opts) {
   if (!guild || !guild.id) {
     return { ok: false, error: 'Interne fout: er is geen server meegegeven aan createGang.' };
   }
 
-  const named = validateNameAndEmoji(guild, opts?.name, opts?.emoji, null);
+  const named = validateNameAndEmoji(guild, opts?.name, opts?.emoji, null, opts?.abbreviation);
   if (!named.ok) return named;
 
   const capacity = validateGuildCapacity(guild);
@@ -1015,6 +1047,7 @@ function validateCreateOptions(guild, opts) {
     name: named.name,
     emoji: named.emoji,
     slug: named.slug,
+    abbreviation: named.abbreviation,
     memberLimit: limitOrDefault(opts?.memberLimit, guildConfig.defaultMemberLimit, 1),
   };
 }
@@ -1440,6 +1473,7 @@ async function createGang(guild, opts) {
   const draft = {
     name: validation.name,
     slug: validation.slug,
+    abbreviation: validation.abbreviation,
     emoji: validation.emoji,
     categoryId: null,
     roleId: null,
@@ -1740,11 +1774,13 @@ async function renameGangCategory(guild, gang, name, emoji, reason, failed) {
 
 /**
  * Hernoemt een gang: de categorie, de drie rollen en de kanalen met de slug in hun naam.
- * `name` en `emoji` zijn allebei optioneel; wat niet meegegeven wordt blijft ongewijzigd.
+ * `name`, `emoji` en `abbreviation` zijn allemaal optioneel; wat niet meegegeven wordt
+ * blijft ongewijzigd. `clearAbbreviation` haalt een bestaande afkorting weg, waarna de
+ * kanaalnamen weer uit de volledige naam komen.
  *
  * @param {import('discord.js').Guild} guild De server.
  * @param {object} gang Het huidige GangRecord.
- * @param {{name?: string, emoji?: string, actorId?: string}} opts Nieuwe naam en/of emoji.
+ * @param {{name?: string, emoji?: string, abbreviation?: string, clearAbbreviation?: boolean, actorId?: string}} opts Wijzigingen.
  * @returns {Promise<{ok: true, gang: object, error: string|null}|{ok: false, error: string}>} Resultaat.
  */
 async function renameGang(guild, gang, opts) {
@@ -1754,11 +1790,19 @@ async function renameGang(guild, gang, opts) {
 
   const rawName = typeof opts?.name === 'string' && opts.name.trim() ? opts.name : gang.name;
   const rawEmoji = typeof opts?.emoji === 'string' && opts.emoji.trim() ? opts.emoji : gang.emoji;
-  const validation = validateNameAndEmoji(guild, rawName, rawEmoji, gang.id);
+  // Weghalen wint van een meegegeven afkorting: wie allebei opgeeft bedoelt vrijwel zeker
+  // het laatste, en zo levert die combinatie in elk geval geen stille verrassing op.
+  let rawAbbreviation;
+  if (opts?.clearAbbreviation) rawAbbreviation = '';
+  else if (typeof opts?.abbreviation === 'string' && opts.abbreviation.trim()) rawAbbreviation = opts.abbreviation;
+  else rawAbbreviation = gang.abbreviation || '';
+
+  const validation = validateNameAndEmoji(guild, rawName, rawEmoji, gang.id, rawAbbreviation);
   if (!validation.ok) return validation;
 
-  const { name, emoji, slug } = validation;
-  if (name === gang.name && emoji === gang.emoji && slug === gang.slug) {
+  const { name, emoji, slug, abbreviation } = validation;
+  if (name === gang.name && emoji === gang.emoji && slug === gang.slug
+    && abbreviation === (gang.abbreviation || '')) {
     return { ok: true, gang, error: null };
   }
 
@@ -1770,9 +1814,11 @@ async function renameGang(guild, gang, opts) {
   await renameGangRoles(guild, gang, name, reason, failed);
   if (slug !== gang.slug) await renameGangChannels(guild, gang, slug, reason, failed);
 
-  const updated = store.updateGang(guild.id, gang.id, { name, slug, emoji });
+  const updated = store.updateGang(guild.id, gang.id, {
+    name, slug, emoji, abbreviation,
+  });
   const result = updated || {
-    ...gang, name, slug, emoji,
+    ...gang, name, slug, emoji, abbreviation,
   };
 
   // Een hernoemde rol kan door Discord ergens anders in de lijst belanden; het blokje van

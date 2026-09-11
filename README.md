@@ -534,11 +534,11 @@ dan is de bot klaar voor gebruik.
 
 | Subcommando | Opties | Wie mag dit | Wat het doet |
 |---|---|---|---|
-| `/gang aanmaken` | `naam`* (2-40 tekens), `emoji`* (precies 1 emoji), `boss` (lid), `ledenlimiet` (1-100) | Staff | Maakt de complete gang aan: 1 categorie, 6 kanalen en 3 rollen, en zet die rollen meteen als blokje in de rollenlijst. Geef je `boss` op, dan krijgt die persoon meteen de gangrol en de bossrol. Laat je `ledenlimiet` leeg, dan geldt de serverstandaard uit `/setup limieten`. Mislukt er iets halverwege, dan draait de bot alles terug - er blijft nooit half werk staan. |
+| `/gang aanmaken` | `naam`* (2-40 tekens), `emoji`* (precies 1 emoji), `afkorting` (2-20 tekens), `boss` (lid), `ledenlimiet` (1-100) | Staff | Maakt de complete gang aan: 1 categorie, 6 kanalen en 3 rollen, en zet die rollen meteen als blokje in de rollenlijst. Geef je `boss` op, dan krijgt die persoon meteen de gangrol en de bossrol. Laat je `ledenlimiet` leeg, dan geldt de serverstandaard uit `/setup limieten`. Mislukt er iets halverwege, dan draait de bot alles terug - er blijft nooit half werk staan. |
 | `/gang verwijderen` | `gang`* (typ om te zoeken), `rollen_verwijderen` (ja/nee, standaard **ja**) | Staff | Verwijdert de categorie en alle kanalen van de gang. Met `rollen_verwijderen:ja` gaan ook de drie rollen weg. Je krijgt eerst een bevestigingsvraag met knoppen; die vervalt na 60 seconden en alleen jij kunt erop klikken. **Dit kan niet ongedaan gemaakt worden.** |
 | `/gang lijst` | (geen) | Iedereen | Overzicht van alle gangs met per gang een bezettingsbalk. Dit antwoord is zichtbaar voor iedereen in het kanaal. |
 | `/gang info` | `gang` (optioneel; leeg = je eigen gang) | Leden en leiding van die gang, en staff | Toont boss, underboss, de overige leden, de limieten en een link naar de categorie. Zichtbaar voor iedereen in het kanaal. Je kunt alleen je eigen gang bekijken, tenzij je staff bent. |
-| `/gang hernoemen` | `gang`*, `naam`, `emoji` | Staff | Wijzigt de naam en/of de emoji. De categorie, de drie rollen en de kanalen met de gangnaam erin worden meteen hernoemd. |
+| `/gang hernoemen` | `gang`*, `naam`, `emoji`, `afkorting`, `afkorting_weghalen` (ja/nee) | Staff | Wijzigt de naam, de emoji en/of de afkorting. De categorie, de drie rollen en de kanalen met de gangnaam erin worden meteen hernoemd. Met `afkorting_weghalen:ja` komen de kanaalnamen weer uit de volledige naam. |
 | `/gang limiet` | `gang`*, `leden` (1-100), `bosses` (1-10), `underbosses` (0-10) | Staff | Past de limieten van die ene gang aan. Wat je niet invult, blijft ongewijzigd. |
 | `/gang promoveer` | `lid`*, `reden`, `gang` (leeg = je eigen gang) | **Boss** of staff | Zet iemand **een trede hoger**: lid → underboss → boss. De bot kijkt zelf waar iemand staat. Alleen staff mag de laatste stap naar boss zetten. |
 | `/gang degradeer` | `lid`*, `reden`, `gang` (leeg = je eigen gang) | **Boss** of staff | Zet iemand **een trede lager**: boss → underboss → lid. Aan een zittende boss kan alleen staff iets veranderen. Onder "lid" zit niets meer; moet iemand helemaal uit de gang, gebruik dan `/gang ontslaan`. |
@@ -868,6 +868,44 @@ Bij `/gang aanmaken naam:Rayuza emoji:⚔️` zet de bot dit neer.
 | `📞・rayuza-oortje` | Spraak | Het spraakkanaal van de gang |
 
 De emoji staat vast per kanaalsoort en wordt van de naam gescheiden door het teken `・`.
+
+### Een afkorting voor lange gangnamen
+
+Bij een lange naam worden die kanaalnamen onwerkbaar: *Grove Street Family* levert
+`💭・grove-street-family-chat` op. Geef daarom een **afkorting** mee:
+
+```
+/gang aanmaken naam:Grove Street Family emoji:🟢 afkorting:gsf
+```
+
+| | Zonder afkorting | Met `afkorting:gsf` |
+|---|---|---|
+| Categorie | `🟢 \| Grove Street Family` | `🟢 \| Grove Street Family` |
+| Rollen | `Grove Street Family`, `... Boss`, `... Underboss` | ongewijzigd |
+| Kanalen | `💭・grove-street-family-chat` | `💭・gsf-chat` |
+
+De afkorting raakt dus **alleen de kanaalnamen**. De categorie en de drie rollen houden de
+volledige naam; daar is de lengte geen probleem.
+
+De optie is niet verplicht - laat je hem weg, dan komen de kanaalnamen gewoon uit de
+volledige naam, precies zoals daarvoor.
+
+**Later toevoegen of wijzigen** kan ook; de kanalen worden dan meteen hernoemd:
+
+```
+/gang hernoemen gang:Grove Street Family afkorting:gsf
+/gang hernoemen gang:Grove Street Family afkorting_weghalen:ja
+```
+
+Twee dingen om te weten:
+
+- Een afkorting moet **2 tot 20 tekens** zijn en minstens één letter of cijfer bevatten.
+- Twee gangs kunnen niet dezelfde kanaalnaam krijgen. Kiest een tweede gang een afkorting
+  die al bezet is, dan weigert de bot dat met een melding in plaats van er stilletjes een
+  streepje achter te plakken.
+
+In `/gang info` staat onder de bezetting welke kanaalnaam een gang gebruikt en of dat een
+afkorting is - handig als je je afvraagt waarom een kanaal `gsf-chat` heet.
 De gangnaam in de kanaalnamen is de "slug": kleine letters, spaties worden streepjes
 (`Los Zetas` wordt `los-zetas`). De kanalen `📷・media` en `👤・dark-chat` heten in elke
 gang hetzelfde; ze staan alleen in een andere categorie.

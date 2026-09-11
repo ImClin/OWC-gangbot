@@ -443,6 +443,7 @@ async function handleAanmaken(ctx) {
   const result = await gangService.createGang(guild, {
     name: interaction.options.getString('naam'),
     emoji: interaction.options.getString('emoji'),
+    abbreviation: interaction.options.getString('afkorting') ?? undefined,
     bossMember,
     memberLimit: interaction.options.getInteger('ledenlimiet') ?? undefined,
     actorId: interaction.user.id,
@@ -1035,11 +1036,14 @@ async function handleHernoemen(ctx) {
 
   const naam = interaction.options.getString('naam');
   const emoji = interaction.options.getString('emoji');
-  if (!naam && !emoji) {
+  const afkorting = interaction.options.getString('afkorting');
+  const afkortingWeg = interaction.options.getBoolean('afkorting_weghalen') === true;
+  if (!naam && !emoji && !afkorting && !afkortingWeg) {
     await sendError(
       interaction,
       'Niets om te wijzigen',
-      'Geef minstens een nieuwe `naam` of een nieuwe `emoji` op.',
+      'Geef minstens een nieuwe `naam`, `emoji` of `afkorting` op, of zet '
+        + '`afkorting_weghalen` op ja.',
     );
     return;
   }
@@ -1052,9 +1056,12 @@ async function handleHernoemen(ctx) {
   if (!await deferEphemeral(interaction)) return;
 
   const oud = gangLabel(found.gang);
+  const hadAfkorting = Boolean(found.gang.abbreviation);
   const result = await gangService.renameGang(guild, found.gang, {
     name: naam || undefined,
     emoji: emoji || undefined,
+    abbreviation: afkorting || undefined,
+    clearAbbreviation: afkortingWeg,
     actorId: interaction.user.id,
   });
 
@@ -1064,9 +1071,19 @@ async function handleHernoemen(ctx) {
   }
 
   const nieuw = gangLabel(result.gang);
+  // Zeggen waar de kanaalnaam vandaan komt: anders lijkt een korte kanaalnaam bij een lange
+  // gangnaam een fout, en weet staff niet dat /gang hernoemen die afkorting kan weghalen.
+  const herkomst = result.gang.abbreviation
+    ? `afkorting \`${result.gang.abbreviation}\``
+    : 'de volledige naam';
+  const afkortingRegel = (afkortingWeg && hadAfkorting)
+    ? '\nDe afkorting is weggehaald; de kanaalnamen komen weer uit de volledige naam.'
+    : '';
   await sendEmbed(interaction, successEmbed(
     'Gang hernoemd',
-    `**${oud}** heet voortaan **${nieuw}** (kanaalnaam: \`${result.gang.slug}\`).`
+    `**${oud}** heet voortaan **${nieuw}**.`
+      + `\nKanaalnamen: \`${result.gang.slug}\` — uit ${herkomst}.`
+      + afkortingRegel
       + (result.error ? `\n\n⚠️ ${result.error}` : ''),
   ));
   refreshDashboard(guild);
@@ -1491,6 +1508,7 @@ function addBasisSubcommands(builder) {
     .setDescription('Maak een nieuwe gang aan (staff)')
     .addStringOption((o) => o.setName('naam').setDescription('Naam van de gang, 2 tot 40 tekens').setRequired(true))
     .addStringOption((o) => o.setName('emoji').setDescription('Precies 1 emoji voor categorie en kanalen').setRequired(true))
+    .addStringOption((o) => o.setName('afkorting').setDescription('Korte naam voor in de kanaalnamen, bv. gsf (leeg = de volledige naam)').setRequired(false))
     .addUserOption((o) => o.setName('boss').setDescription('Wie wordt meteen de boss?').setRequired(false))
     .addIntegerOption((o) => o.setName('ledenlimiet').setDescription('Max. aantal leden (leeg = de serverstandaard uit /setup limieten)').setMinValue(1).setMaxValue(100)));
 
@@ -1522,9 +1540,11 @@ function addBasisSubcommands(builder) {
 function addBeheerSubcommands(builder) {
   builder.addSubcommand((sub) => addGangOption(sub
     .setName('hernoemen')
-    .setDescription('Wijzig de naam en/of emoji van een gang (staff)'), true)
+    .setDescription('Wijzig de naam, emoji en/of afkorting van een gang (staff)'), true)
     .addStringOption((o) => o.setName('naam').setDescription('Nieuwe naam').setRequired(false))
-    .addStringOption((o) => o.setName('emoji').setDescription('Nieuwe emoji').setRequired(false)));
+    .addStringOption((o) => o.setName('emoji').setDescription('Nieuwe emoji').setRequired(false))
+    .addStringOption((o) => o.setName('afkorting').setDescription('Nieuwe korte naam voor in de kanaalnamen, bv. gsf').setRequired(false))
+    .addBooleanOption((o) => o.setName('afkorting_weghalen').setDescription('Haal de afkorting weg; de kanaalnamen komen weer uit de volledige naam').setRequired(false)));
 
   builder.addSubcommand((sub) => addGangOption(sub
     .setName('limiet')
