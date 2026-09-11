@@ -27,6 +27,7 @@ const {
   isMemberOf,
   getLedGangs,
   getMemberGang,
+  getMemberGangs,
 } = require('../lib/permissions');
 const {
   successEmbed,
@@ -294,6 +295,45 @@ function resolveActionGang(ctx, verb) {
 }
 
 /**
+ * Zoekt bij welke gang het GEKOZEN LID hoort.
+ *
+ * Promoveren en degraderen gaan altijd over de gang waar iemand al in zit - niemand zit in
+ * twee gangs tegelijk, dus de bot hoeft daar niet naar te vragen. Blijkt iemand tóch twee
+ * gangrollen te hebben, dan is er met de hand gerommeld; dan kiest de bot bewust niet zelf,
+ * maar laat hij het aan staff over.
+ *
+ * @param {CommandContext} ctx De context.
+ * @param {import('discord.js').GuildMember} member Het gekozen lid.
+ * @param {string} verb 'promoveren' of 'degraderen', voor in de melding.
+ * @returns {{ok: true, gang: object}|{ok: false, titel: string, error: string, meerdere?: object[]}} Resultaat.
+ */
+function resolveGangOfTarget(ctx, member, verb) {
+  const gangs = getMemberGangs(member, ctx.gangs);
+  if (gangs.length === 1) return { ok: true, gang: gangs[0] };
+
+  if (!gangs.length) {
+    return {
+      ok: false,
+      titel: 'Zit niet in een gang',
+      error: `<@${member.id}> heeft geen gangrol, dus er valt niets te ${verb}.`
+        + ' Neem diegene eerst aan met `/gang aannemen`.',
+    };
+  }
+
+  const namen = gangs.map((gang) => gang.name).join(', ');
+  return {
+    ok: false,
+    meerdere: gangs,
+    titel: 'Meerdere gangrollen',
+    error: `<@${member.id}> heeft de gangrol van ${gangs.length} gangs: **${namen}**.`
+      + ' Niemand hoort in twee gangs tegelijk, dus de bot kan niet bepalen welke je bedoelt'
+      + ` en ${verb} is niet doorgegaan.`
+      + '\n\nHaal in Serverinstellingen de gangrol weg die er niet hoort, en probeer het'
+      + ' daarna opnieuw. De staff is hier ook over ingelicht.',
+  };
+}
+
+/**
  * Controleert of de aanroeper leiding geeft aan deze gang of staff is.
  *
  * @param {CommandContext} ctx De context.
@@ -391,6 +431,51 @@ function logNoticeAsync(guild, embed) {
       .catch((err) => logger.warn(`/gang: melding loggen mislukt: ${err?.message || err}`));
   } catch (err) {
     logger.warn(`/gang: melding loggen mislukt: ${err?.message || err}`);
+  }
+}
+
+/**
+ * Post een melding in het logkanaal MET een ping naar de meldrol (`/setup meldrol`).
+ *
+ * Voor situaties waar de bot niet verder kan en een mens moet ingrijpen. Is er geen meldrol
+ * ingesteld, dan gaat de melding er gewoon zonder ping in - beter een stille melding dan
+ * helemaal geen.
+ *
+ * @param {import('discord.js').Guild} guild De server.
+ * @param {import('discord.js').EmbedBuilder} embed De embed.
+ * @returns {void}
+ */
+function alertNoticeAsync(guild, embed) {
+  if (!guild || !embed) return;
+  let mentionRoleId = null;
+  try {
+    mentionRoleId = store.getGuildConfig(guild.id)?.alertRoleId || null;
+  } catch (err) {
+    logger.warn(`/gang: meldrol opzoeken mislukt: ${err?.message || err}`);
+  }
+  try {
+    void Promise.resolve(logService.logNotice(guild, embed, { mentionRoleId }))
+      .catch((err) => logger.warn(`/gang: melding loggen mislukt: ${err?.message || err}`));
+  } catch (err) {
+    logger.warn(`/gang: melding loggen mislukt: ${err?.message || err}`);
+  }
+}
+
+/**
+ * Post een aanname of ontslag openbaar in het register, zonder erop te wachten.
+ *
+ * @param {import('discord.js').Guild} guild De server.
+ * @param {object} action Het ActionRecord.
+ * @param {object|null} counts Telling na de actie.
+ * @returns {void}
+ */
+function announceActionAsync(guild, action, counts) {
+  if (!guild || !action) return;
+  try {
+    void Promise.resolve(logService.announceAction(guild, action, counts || null))
+      .catch((err) => logger.warn(`/gang: actie openbaar posten mislukt: ${err?.message || err}`));
+  } catch (err) {
+    logger.warn(`/gang: actie openbaar posten mislukt: ${err?.message || err}`);
   }
 }
 
@@ -1212,31 +1297,42 @@ async function handleLimiet(ctx) {
 async function handleTrede(ctx, richting) {
   const { interaction, guild } = ctx;
   const omhoog = richting === 'promoveer';
+  const werkwoord = omhoog ? 'promoveren' : 'degraderen';
 
-  const found = resolveActionGang(ctx, omhoog ? 'promoveren' : 'degraderen');
+  // Eerst het lid: de gang volgt uit wie diegene is, niet uit een losse optie.
+  const target = await fetchOptionMember(ctx, 'lid');
+  if (!target.ok) {
+    await sendError(interaction, 'Lid niet gevonden', target.error);
+    return;
+  }
+
+  const found = resolveGangOfTarget(ctx, target.member, werkwoord);
   if (!found.ok) {
-    await sendError(interaction, 'Gang niet gevonden', found.error);
+    if (found.meerdere) {
+      alertNoticeAsync(guild, warningEmbed(
+        'Lid met meerdere gangrollen',
+        `<@${target.member.id}> heeft de gangrol van **${found.meerdere.map((g) => g.name).join('**, **')}**.`
+          + ` Daardoor kon <@${interaction.user.id}> diegene niet ${werkwoord}.`
+          + '\n\nZet dit recht door de gangrol weg te halen die er niet hoort. Wie in twee gangs'
+          + ' staat telt ook in beide mee voor de ledenlimiet en het dashboard.',
+      ));
+    }
+    await sendError(interaction, found.titel, found.error);
     return;
   }
   if (!ctx.staff && !isBossOf(ctx.member, found.gang)) {
     await sendError(
       interaction,
       'Geen toegang',
-      `Alleen staff of de boss van ${found.gang.name} mag mensen ${omhoog ? 'promoveren' : 'degraderen'}.`
+      `Alleen staff of de boss van ${found.gang.name} mag mensen ${werkwoord}.`
         + ` ${STAFF_HINT}`,
     );
     return;
   }
-  const target = await fetchOptionMember(ctx, 'lid');
-  if (!target.ok) {
-    await sendError(interaction, 'Lid niet gevonden', target.error);
-    return;
-  }
   if (!await deferEphemeral(interaction)) return;
 
-  const reden = interaction.options.getString('reden') || null;
   const dienst = omhoog ? membershipService.promote : membershipService.demote;
-  const result = await dienst(guild, found.gang, target.member, ctx.member, { reason: reden });
+  const result = await dienst(guild, found.gang, target.member, ctx.member, { reason: null });
   if (!result.ok) {
     await sendError(interaction, omhoog ? 'Promoveren mislukt' : 'Degraderen mislukt', result.error);
     return;
@@ -1318,6 +1414,7 @@ async function handleAannemen(ctx) {
       + `\n${formatCapacity(result.counts)}`,
   ));
   logActionAsync(guild, result.action, result.counts);
+  announceActionAsync(guild, result.action, result.counts);
   warnIfFull(guild, gang, result.counts);
   refreshDashboard(guild);
 }
@@ -1360,6 +1457,7 @@ async function handleOntslaan(ctx) {
       + `\n${formatCapacity(result.counts)}`,
   ));
   logActionAsync(guild, result.action, result.counts);
+  announceActionAsync(guild, result.action, result.counts);
   refreshDashboard(guild);
 }
 
@@ -1553,25 +1651,17 @@ function addBeheerSubcommands(builder) {
     .addIntegerOption((o) => o.setName('bosses').setDescription('Max. aantal bosses').setMinValue(1).setMaxValue(10))
     .addIntegerOption((o) => o.setName('underbosses').setDescription('Max. aantal underbosses').setMinValue(0).setMaxValue(10)));
 
-  // LET OP: Discord eist dat verplichte opties vóór optionele staan, anders wordt de hele
-  // registratie geweigerd (50035). De optionele `gang` gaat er daarom als laatste op.
-  builder.addSubcommand((sub) => addGangOption(sub
+  // Geen gang-optie: promoveren en degraderen gaan over de gang waar het gekozen lid al in
+  // zit, en niemand zit in twee gangs tegelijk. Zie resolveGangOfTarget.
+  builder.addSubcommand((sub) => sub
     .setName('promoveer')
     .setDescription('Een trede hoger: lid > underboss > boss')
-    .addUserOption((o) => o.setName('lid').setDescription('Wie promoveer je?').setRequired(true))
-    .addStringOption((o) => o
-      .setName('reden')
-      .setDescription('Waarom? (komt in het logboek)')
-      .setMaxLength(400)), false, 'Bij welke gang? (leeg = je eigen gang)'));
+    .addUserOption((o) => o.setName('lid').setDescription('Wie promoveer je?').setRequired(true)));
 
-  builder.addSubcommand((sub) => addGangOption(sub
+  builder.addSubcommand((sub) => sub
     .setName('degradeer')
     .setDescription('Een trede lager: boss > underboss > lid')
-    .addUserOption((o) => o.setName('lid').setDescription('Wie degradeer je?').setRequired(true))
-    .addStringOption((o) => o
-      .setName('reden')
-      .setDescription('Waarom? (komt in het logboek)')
-      .setMaxLength(400)), false, 'Bij welke gang? (leeg = je eigen gang)'));
+    .addUserOption((o) => o.setName('lid').setDescription('Wie degradeer je?').setRequired(true)));
 
   builder.addSubcommand((sub) => addGangOption(sub
     .setName('herstel')
@@ -1593,6 +1683,8 @@ function addLedenSubcommands(builder) {
     .addUserOption((o) => o.setName('lid').setDescription('Wie neem je aan?').setRequired(true)),
   false, 'Bij welke gang? (leeg = je eigen gang)'));
 
+  // LET OP: Discord eist dat verplichte opties vóór optionele staan, anders wordt de hele
+  // registratie geweigerd (50035). De optionele `gang` gaat er daarom na `lid` op.
   builder.addSubcommand((sub) => addGangOption(sub
     .setName('ontslaan')
     .setDescription('Ontsla iemand bij je gang (boss/underboss of staff)')

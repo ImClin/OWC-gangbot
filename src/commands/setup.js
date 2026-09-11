@@ -777,6 +777,63 @@ async function handleStaffrol(interaction) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* /setup meldrol                                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Subcommand `meldrol`: welke rol krijgt een ping als de bot er niet uitkomt.
+ *
+ * Dit is geen rechtenrol - hij geeft nergens toegang toe. Hij wordt alleen aangepingd in
+ * het logkanaal bij situaties die een mens moeten hebben, zoals een lid dat de gangrol van
+ * twee gangs tegelijk blijkt te hebben.
+ *
+ * Geen rol meegeven zet de ping weer uit; de melding zelf blijft dan gewoon komen.
+ *
+ * @param {import('discord.js').ChatInputCommandInteraction} interaction De interactie.
+ * @returns {Promise<void>}
+ */
+async function handleMeldrol(interaction) {
+  const guild = interaction.guild;
+  const picked = interaction.options.getRole('rol');
+
+  if (picked && picked.id === guild.id) {
+    return respond(interaction, embeds.errorEmbed(
+      '@everyone kan geen meldrol zijn',
+      'Dan krijgt de hele server een ping bij elke melding. Kies de rol van je staff of'
+        + ' moderatie.',
+    ));
+  }
+
+  if (!(await deferEphemeral(interaction))) return;
+  if (!writeConfig(guild.id, { alertRoleId: picked ? picked.id : null })) {
+    return respond(interaction, saveFailedEmbed());
+  }
+
+  const config = readConfig(guild.id);
+  if (!picked) {
+    const uit = embeds.successEmbed('Meldrol uitgezet');
+    addField(uit, 'Wat dit betekent', 'Meldingen komen nog steeds in het logkanaal, maar'
+      + ' zonder ping. Niemand wordt er dus actief op gewezen.');
+    return respond(interaction, uit);
+  }
+
+  const embed = embeds.successEmbed('Meldrol opgeslagen');
+  addField(embed, 'Meldrol', `<@&${picked.id}>`);
+  addField(embed, 'Wanneer krijgt deze rol een ping', [
+    'Als een lid de gangrol van meerdere gangs tegelijk heeft en `/gang promoveer` of '
+      + '`/gang degradeer` daardoor niet weet welke gang bedoeld is.',
+  ]);
+  addField(embed, 'Let op', [
+    'Deze rol krijgt hier **geen rechten** van; hij wordt alleen aangepingd.',
+    config?.logChannelId
+      ? `De pings komen in <#${config.logChannelId}>.`
+      : '⚠️ Er is nog geen logkanaal ingesteld, dus er is nergens om te pingen. '
+        + 'Koppel er een met `/setup kanalen logboek: #kanaal`.',
+  ]);
+  return respond(interaction, embed);
+}
+
+/* -------------------------------------------------------------------------- */
 /* /setup leidingkanaal                                                        */
 /* -------------------------------------------------------------------------- */
 
@@ -1700,6 +1757,7 @@ async function handleToon(interaction) {
   addField(embed, 'Ontslagen', describeChannel(guild, config.fireChannelId), true);
   addField(embed, 'Logboek', describeChannel(guild, config.logChannelId), true);
   addField(embed, 'Staffrol', describeRole(guild, config.staffRoleId), true);
+  addField(embed, 'Meldrol (ping bij problemen)', describeRole(guild, config.alertRoleId), true);
   addField(embed, 'Bodemrol (gangrollen blijven hierboven)',
     config.roleFloorId ? describeRole(guild, config.roleFloorId) : '— *niet ingesteld*', true);
   addField(embed, 'Dashboardkanaal', describeChannel(guild, config.dashboardChannelId), true);
@@ -1779,6 +1837,13 @@ const data = new SlashCommandBuilder()
       .setDescription('De rol die staffrechten krijgt binnen het gangbeheer.')
       .setRequired(true)))
   .addSubcommand((sub) => sub
+    .setName('meldrol')
+    .setDescription('Welke rol krijgt een ping als de bot er niet uitkomt?')
+    .addRoleOption((opt) => opt
+      .setName('rol')
+      .setDescription('De rol die gepingd wordt. Leeg laten zet de ping uit.')
+      .setRequired(false)))
+  .addSubcommand((sub) => sub
     .setName('leidingkanaal')
     .setDescription('Een kanaal waar alleen boss en underboss van elke gang bij kunnen.')
     .addChannelOption((opt) => opt
@@ -1855,6 +1920,7 @@ const HANDLERS = {
   kanalen: handleKanalen,
   staffrol: handleStaffrol,
   bodemrol: handleBodemrol,
+  meldrol: handleMeldrol,
   leidingkanaal: handleLeidingkanaal,
   'gedeelde-categorie': handleGedeeldeCategorie,
   extrarollen: handleExtraRollen,
@@ -1890,8 +1956,8 @@ async function execute(interaction) {
   if (!handler) {
     return respond(interaction, embeds.errorEmbed(
       'Onbekend subcommando',
-      'Kies een van: `kanalen`, `leidingkanaal`, `staffrol`, `bodemrol`, `extrarollen`, '
-        + '`gedeelde-categorie`, `limieten`, `dashboard` of `toon`.',
+      'Kies een van: `kanalen`, `leidingkanaal`, `staffrol`, `meldrol`, `bodemrol`, '
+        + '`extrarollen`, `gedeelde-categorie`, `limieten`, `dashboard` of `toon`.',
     ));
   }
 

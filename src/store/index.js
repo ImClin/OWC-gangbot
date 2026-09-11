@@ -7,6 +7,7 @@ const constants = require('../lib/constants');
 /**
  * @typedef {object} GuildConfig
  * @property {string|null} staffRoleId
+ * @property {string|null} alertRoleId Rol die gepingd wordt als de bot er niet uitkomt.
  * @property {string|null} roleFloorId Gangrollen blijven altijd boven deze rol staan.
  * @property {string[]} leaderChannelIds Kanalen die net als #aangenomen en #ontslagen op slot
  *   gaan: iedereen leest mee, alleen de leiding van elke gang mag er typen.
@@ -241,6 +242,7 @@ const store = new JsonStore(DATA_FILE, { guilds: {} });
 function defaultGuildConfig() {
   return {
     staffRoleId: null,
+    alertRoleId: null,
     roleFloorId: null,
     leaderChannelIds: [],
     hireChannelId: null,
@@ -313,6 +315,7 @@ function migrateGangLimits(gang) {
 function normalizeConfig(raw) {
   const out = { ...defaultGuildConfig(), ...(isPlainObject(raw) ? raw : {}) };
   out.staffRoleId = asId(out.staffRoleId);
+  out.alertRoleId = asId(out.alertRoleId);
   out.roleFloorId = asId(out.roleFloorId);
   out.leaderChannelIds = uniqueIds(out.leaderChannelIds);
   out.hireChannelId = asId(out.hireChannelId);

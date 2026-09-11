@@ -17,7 +17,18 @@ const {
 const logger = require('../lib/logger');
 const store = require('../store');
 const { actionLogEmbed } = require('../lib/embeds');
-const { BUTTON, COLORS } = require('../lib/constants');
+const { ACTION, BUTTON, COLORS } = require('../lib/constants');
+
+/**
+ * Welke actiesoort openbaar in welk registerkanaal hoort. Wat hier niet in staat gaat
+ * alleen naar het staff-logkanaal: een handmatige rolwijziging of iemand die de server
+ * verlaat is geen aanname of ontslag door de leiding, en hoort dus niet in het register.
+ */
+const ANNOUNCE_CHANNEL_BY_ACTION = {
+  [ACTION.HIRE]: 'hireChannelId',
+  [ACTION.HIRE_MEELOPER]: 'hireChannelId',
+  [ACTION.FIRE]: 'fireChannelId',
+};
 
 /** Tekst op de actieve knop onder een logbericht. */
 const REVERT_LABEL = 'Terugdraaien';
@@ -309,11 +320,17 @@ async function logAction(guild, action, counts) {
  *
  * Faalt stil met een warn-log als het logkanaal ontbreekt of de bot er niet mag posten.
  *
+ * Met `mentionRoleId` komt er een echte ping boven de embed te staan. Dat kan alleen via
+ * de berichtinhoud: een rolmention IN een embed pingt niemand, hij ziet er alleen uit als
+ * een mention. allowedMentions staat daarom expliciet alleen die ene rol toe, zodat een
+ * melding nooit per ongeluk @everyone of een lid wakker maakt.
+ *
  * @param {import('discord.js').Guild} guild De server.
  * @param {import('discord.js').EmbedBuilder|object} embed De embed uit lib/embeds.js.
+ * @param {{mentionRoleId?: string|null}} [options] Extra opties.
  * @returns {Promise<import('discord.js').Message|null>} Het geposte bericht, of null.
  */
-async function logNotice(guild, embed) {
+async function logNotice(guild, embed, options = {}) {
   if (!guild || !embed) {
     logger.warn('logNotice aangeroepen zonder server of embed; overgeslagen.');
     return null;
@@ -322,10 +339,72 @@ async function logNotice(guild, embed) {
   const channel = await getLogChannel(guild, null);
   if (!channel) return null;
 
+  const mentionRoleId = typeof options?.mentionRoleId === 'string' && options.mentionRoleId
+    ? options.mentionRoleId
+    : null;
+
   try {
-    return await channel.send({ embeds: [embed] });
+    const payload = { embeds: [embed] };
+    if (mentionRoleId) {
+      payload.content = `<@&${mentionRoleId}>`;
+      payload.allowedMentions = { roles: [mentionRoleId] };
+    }
+    return await channel.send(payload);
   } catch (err) {
     logger.warn(`Meldingsembed kon niet gepost worden in ${describeGuild(guild)}: ${reason(err)}`);
+    return null;
+  }
+}
+
+/**
+ * Post een aanname of ontslag OPENBAAR in het register (#aangenomen of #ontslagen).
+ *
+ * Waarom apart van logAction: het logkanaal is voor staff en krijgt de terugdraaiknop; het
+ * register is voor iedereen in een gang en krijgt alleen de embed. Een aanname die via een
+ * bericht IN het register binnenkwam hoeft hier niet langs - dat bericht staat er al.
+ *
+ * Faalt stil met een warn-log: de aanname zelf is dan al gelukt en mag hier niet op stuk.
+ *
+ * @param {import('discord.js').Guild} guild De server.
+ * @param {object} action Het ActionRecord.
+ * @param {object|null} counts Telling na de actie.
+ * @returns {Promise<import('discord.js').Message|null>} Het geposte bericht, of null.
+ */
+async function announceAction(guild, action, counts) {
+  if (!guild || !action) {
+    logger.warn('announceAction aangeroepen zonder server of actie; overgeslagen.');
+    return null;
+  }
+
+  const kanaalKey = ANNOUNCE_CHANNEL_BY_ACTION[action.type];
+  if (!kanaalKey) return null;
+
+  let channelId = null;
+  try {
+    channelId = store.getGuildConfig(guild.id)?.[kanaalKey] || null;
+  } catch (err) {
+    logger.warn(`Registerkanaal opzoeken mislukt in ${describeGuild(guild)}: ${reason(err)}`);
+    return null;
+  }
+  if (!channelId) return null;
+
+  const channel = await resolveTextChannel(guild, channelId);
+  if (!channel || !(await canSendIn(guild, channel))) {
+    logger.warn(
+      `Actie #${action.id} kon niet in het register gepost worden in ${describeGuild(guild)}:`
+      + ' het kanaal bestaat niet meer of de bot mag er niet posten.',
+    );
+    return null;
+  }
+
+  try {
+    const message = await channel.send({ embeds: [actionLogEmbed(action, counts || null)] });
+    logger.debug(`Actie #${action.id} openbaar gepost in #${channel.name || channel.id}.`);
+    return message;
+  } catch (err) {
+    logger.warn(
+      `Actie #${action.id} kon niet in het register gepost worden in ${describeGuild(guild)}: ${reason(err)}`,
+    );
     return null;
   }
 }
@@ -378,4 +457,6 @@ async function markReverted(guild, action) {
   }
 }
 
-module.exports = { logAction, logNotice, markReverted };
+module.exports = {
+  logAction, logNotice, announceAction, markReverted,
+};

@@ -142,6 +142,22 @@ function getMemberGang(member, gangs) {
 }
 
 /**
+ * ALLE gangs waarvan dit lid de gangrol heeft.
+ *
+ * Hoort er altijd precies een te zijn: niemand zit in twee gangs tegelijk. Wie hier twee
+ * of meer terugkrijgt, kijkt naar een lid dat met de hand een tweede gangrol gekregen
+ * heeft - en dan mag de bot niet zelf gokken welke gang bedoeld wordt.
+ *
+ * @param {import('discord.js').GuildMember|null|undefined} member Het lid.
+ * @param {object[]|null|undefined} gangs Lijst GangRecords.
+ * @returns {object[]} De GangRecords (lege array als het lid in geen enkele gang zit).
+ */
+function getMemberGangs(member, gangs) {
+  if (!member || !Array.isArray(gangs)) return [];
+  return gangs.filter((gang) => isMemberOf(member, gang));
+}
+
+/**
  * Kan de bot deze rol toekennen/afnemen? Dat kan alleen als de hoogste botrol
  * boven de rol staat en de rol niet door een integratie wordt beheerd.
  *
@@ -196,6 +212,7 @@ module.exports = {
   isMemberOf,
   getLedGangs,
   getMemberGang,
+  getMemberGangs,
   botCanManageRole,
   missingBotPermissions,
 };

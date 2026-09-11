@@ -540,10 +540,10 @@ dan is de bot klaar voor gebruik.
 | `/gang info` | `gang` (optioneel; leeg = je eigen gang) | Leden en leiding van die gang, en staff | Toont boss, underboss, de overige leden, de limieten en een link naar de categorie. Zichtbaar voor iedereen in het kanaal. Je kunt alleen je eigen gang bekijken, tenzij je staff bent. |
 | `/gang hernoemen` | `gang`*, `naam`, `emoji`, `afkorting`, `afkorting_weghalen` (ja/nee) | Staff | Wijzigt de naam, de emoji en/of de afkorting. De categorie, de drie rollen en de kanalen met de gangnaam erin worden meteen hernoemd. Met `afkorting_weghalen:ja` komen de kanaalnamen weer uit de volledige naam. |
 | `/gang limiet` | `gang`*, `leden` (1-100), `bosses` (1-10), `underbosses` (0-10) | Staff | Past de limieten van die ene gang aan. Wat je niet invult, blijft ongewijzigd. |
-| `/gang promoveer` | `lid`*, `reden`, `gang` (leeg = je eigen gang) | **Boss** of staff | Zet iemand **een trede hoger**: lid → underboss → boss. De bot kijkt zelf waar iemand staat. Alleen staff mag de laatste stap naar boss zetten. |
-| `/gang degradeer` | `lid`*, `reden`, `gang` (leeg = je eigen gang) | **Boss** of staff | Zet iemand **een trede lager**: boss → underboss → lid. Aan een zittende boss kan alleen staff iets veranderen. Onder "lid" zit niets meer; moet iemand helemaal uit de gang, gebruik dan `/gang ontslaan`. |
-| `/gang aannemen` | `lid`*, `gang` (leeg = je eigen gang) | Leiding of staff | Hetzelfde als een bericht in `#aangenomen`, maar dan als commando. Handig als het aannamekanaal even niet beschikbaar is. |
-| `/gang ontslaan` | `lid`*, `gang` (leeg = je eigen gang), `reden` (max 400 tekens) | Leiding of staff | Hetzelfde als een bericht in `#ontslagen`. Alle gangrollen die de persoon van deze gang heeft, gaan er in een keer af. |
+| `/gang promoveer` | `lid`* | **Boss** of staff | Zet iemand **een trede hoger**: lid → underboss → boss. De gang volgt uit de gangrol van het gekozen lid, dus die hoef je niet op te geven. De bot kijkt zelf waar iemand staat. Alleen staff mag de laatste stap naar boss zetten. |
+| `/gang degradeer` | `lid`* | **Boss** of staff | Zet iemand **een trede lager**: boss → underboss → lid. Ook hier volgt de gang uit het lid. Aan een zittende boss kan alleen staff iets veranderen. Onder "lid" zit niets meer; moet iemand helemaal uit de gang, gebruik dan `/gang ontslaan`. |
+| `/gang aannemen` | `lid`*, `gang` (leeg = je eigen gang) | Leiding of staff | Hetzelfde als een bericht in `#aangenomen`, maar dan als commando. Handig als het aannamekanaal even niet beschikbaar is. De aanname wordt ook **openbaar in `#aangenomen` gepost**. |
+| `/gang ontslaan` | `lid`*, `gang` (leeg = je eigen gang), `reden` (max 400 tekens) | Leiding of staff | Hetzelfde als een bericht in `#ontslagen`. Alle gangrollen die de persoon van deze gang heeft, gaan er in een keer af. Het ontslag wordt ook **openbaar in `#ontslagen` gepost**. |
 | `/gang herstel` | `gang`* | Staff | Maakt ontbrekende rollen, de categorie en ontbrekende kanalen opnieuw aan, zet alle permissies terug zoals ze horen en zet de rollenlijst weer op volgorde. Je eerste hulp als er per ongeluk iets verwijderd is. |
 | `/gang historie` | `gang` (optioneel), `lid` (optioneel), `aantal` (1-25, standaard 10) | Staff, en leiding voor de eigen gang | Toont de laatste acties (aannames, ontslagen, handmatige rolwijzigingen, vertrek uit de server) met tijdstip. |
 
@@ -565,6 +565,7 @@ Alleen bruikbaar met het serverrecht **Server beheren**. Alle antwoorden zijn ep
 | `/setup extrarollen` | `rol`*, `actie` (`toevoegen` / `verwijderen`, standaard toevoegen) | Rollen die **alle** gangkanalen mogen zien en er typen, in het oortje mogen praten en in `#aangenomen` en `#ontslagen` mogen posten — bedoeld voor OWC en de wapendealers. Wordt meteen doorgevoerd op alle bestaande gangs, dus `/gang herstel` is niet nodig. Een gangrol of `@everyone` weigert de bot hier. |
 | `/setup leidingkanaal` | `kanaal`*, `actie` (`toevoegen` / `verwijderen`, standaard toevoegen) | Wijst een kanaal aan waar alleen **boss en underboss van elke gang**, staff, de extrarollen en de bot bij kunnen — bijvoorbeeld een gedeelde bosschat. `@everyone` en gewone gangleden zien het niet staan. Nieuwe gangs worden er automatisch aan toegevoegd. `verwijderen` haalt de rechtenregels van de bot er weer af. |
 | `/setup staffrol` | `rol`* | Bepaalt welke rol als staff geldt binnen het gangbeheer (naast het serverrecht *Server beheren*). |
+| `/setup meldrol` | `rol` (optioneel) | Welke rol een **ping** krijgt in het logkanaal als de bot er niet uitkomt — bijvoorbeeld een lid dat de gangrol van twee gangs tegelijk heeft. Deze rol krijgt hier **geen rechten** van. Laat `rol` leeg om de ping weer uit te zetten; de melding zelf blijft dan gewoon komen. |
 | `/setup bodemrol` | `rol` (optioneel) | Houdt alle gangrollen altijd **boven** deze rol in de rollenlijst, ook nieuwe. Wordt meteen toegepast op de bestaande gangrollen. Laat `rol` leeg om de ondergrens weer uit te zetten. `@everyone` en gangrollen worden geweigerd. |
 | `/setup gedeelde-categorie` | `categorie`*, `actie`* (`toevoegen` / `verwijderen`), `sync_kinderen` (ja/nee, standaard nee) | Beheert de lijst categorieen waar alle gangs toegang toe krijgen. `sync_kinderen:ja` **overschrijft de permissies van de kanalen in die categorie** - gebruik met beleid. |
 | `/setup limieten` | `leden` (1-100), `bosses` (1-10), `underbosses` (0-10) | Zet de standaardlimieten voor **nieuwe** gangs. Bestaande gangs veranderen niet. |
@@ -765,6 +766,15 @@ Wordt een underboss gepromoveerd tot boss, dan maakt hij zijn underbossplek mete
 die telt dus niet dubbel.
 
 ### De ladder
+
+> **De gang hoef je niet op te geven.** Niemand zit in twee gangs tegelijk, dus de bot leidt
+> uit de gangrol van het gekozen lid af om welke gang het gaat. Heeft iemand met de hand
+> tóch twee gangrollen gekregen, dan kiest de bot bewust niet zelf: je krijgt een melding
+> dat er eerst een rol weg moet, en de **meldrol** (`/setup meldrol`) krijgt daar een ping
+> over in het logkanaal.
+>
+> Een reden opgeven kan hier niet meer; die stond toch al in het logboek bij wie het deed en
+> wanneer.
 
 Iedereen in een gang staat op een van **drie** treden. `/gang promoveer` zet iemand een stap
 omhoog, `/gang degradeer` een stap omlaag. Je hoeft dus niet te kiezen wélke rol iemand
