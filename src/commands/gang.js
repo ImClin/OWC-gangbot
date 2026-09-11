@@ -1075,65 +1075,6 @@ async function handleButton(interaction) {
 }
 
 // ---------------------------------------------------------------------------
-// /gangbeheer rolweergave
-// ---------------------------------------------------------------------------
-
-/** Hoeveel regels van de migratie er hoogstens in het antwoord passen. */
-const MAX_HOIST_REGELS = 12;
-
-/**
- * Zet bij alle bestaande gangrollen het vinkje "rolleden los van online leden weergeven"
- * goed, zodat elke gang een eigen kopje in de ledenlijst krijgt.
- *
- * Nieuwe gangs krijgen dit vanzelf; dit commando is voor gangs die al bestonden voordat de
- * instelling er was, en voor het geval iemand het vinkje met de hand omzet. Twee keer
- * draaien kan geen kwaad: een rol die al goed staat wordt overgeslagen.
- *
- * @param {CommandContext} ctx De context.
- * @returns {Promise<void>}
- */
-async function handleRolweergave(ctx) {
-  const { interaction, guild } = ctx;
-  if (!await ensureStaff(ctx, 'de weergave van de gangrollen bijwerken')) return;
-  if (!await deferEphemeral(interaction)) return;
-
-  const result = await gangService.applyRoleHoist(guild);
-  if (!result.ok) {
-    await sendError(interaction, 'Bijwerken mislukt', result.error);
-    return;
-  }
-
-  if (!result.gangs) {
-    await sendEmbed(interaction, infoEmbed(
-      'Nog geen gangs',
-      'Er zijn nog geen gangs, dus er viel niets bij te werken. Nieuwe gangs krijgen de '
-        + 'juiste weergave meteen bij `/gangbeheer aanmaken`.',
-    ));
-    return;
-  }
-
-  // Zelfde opmaak als /gangbeheer herstel: een opsomming in de beschrijving.
-  const mislukt = result.meldingen.filter((regel) => regel.includes('kon niet aangepast worden'));
-  const regels = result.meldingen.slice(0, MAX_HOIST_REGELS).map((regel) => `• ${regel}`);
-  const rest = result.meldingen.length - regels.length;
-  if (rest > 0) regels.push(`• … en nog ${rest} regel(s); die staan in de botlogs.`);
-
-  const delen = [result.aangepast
-    ? `${result.aangepast} rol(len) aangepast bij ${result.gangs} gang(s).`
-    : `Alle rollen van ${result.gangs} gang(s) stonden al goed; er is niets veranderd.`];
-  if (regels.length) delen.push(regels.join('\n'));
-  if (mislukt.length) {
-    delen.push('Sleep in Serverinstellingen → Rollen de rol van de bot boven alle gangrollen'
-      + ' en voer dit commando daarna opnieuw uit.');
-  }
-  const body = truncate(delen.join('\n\n'), 3800);
-
-  await sendEmbed(interaction, mislukt.length
-    ? warningEmbed('Rolweergave bijgewerkt, maar niet overal', body)
-    : successEmbed('Rolweergave bijgewerkt', body));
-}
-
-// ---------------------------------------------------------------------------
 // /gang lijst en /gang info
 // ---------------------------------------------------------------------------
 
@@ -1762,10 +1703,6 @@ function addBeheerSubcommands(builder) {
     .setName('herstel')
     .setDescription('Maak ontbrekende rollen/kanalen opnieuw aan en herstel permissies'), true));
 
-  builder.addSubcommand((sub) => sub
-    .setName('rolweergave')
-    .setDescription('Toon alle gangrollen apart in de ledenlijst (eenmalig, voor bestaande gangs)'));
-
   return builder;
 }
 
@@ -1869,7 +1806,6 @@ const HANDLERS = {
 
 /** Subcommands van /gangbeheer. */
 const BEHEER_HANDLERS = {
-  rolweergave: handleRolweergave,
   aanmaken: handleAanmaken,
   verwijderen: handleVerwijderen,
   hernoemen: handleHernoemen,

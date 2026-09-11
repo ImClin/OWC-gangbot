@@ -564,7 +564,6 @@ Het staffgedeelte, in een **apart commando** zodat Discord het kan verbergen. Wi
 | `/gangbeheer hernoemen` | `gang`*, `naam`, `emoji`, `afkorting`, `afkorting_weghalen` (ja/nee) | Wijzigt de naam, de emoji en/of de afkorting. De categorie, de drie rollen en de kanalen met de gangnaam erin worden meteen hernoemd. Met `afkorting_weghalen:ja` komen de kanaalnamen weer uit de volledige naam. |
 | `/gangbeheer limiet` | `gang`*, `leden` (1-100), `bosses` (1-10), `underbosses` (0-10) | Past de limieten van die ene gang aan. Wat je niet invult, blijft ongewijzigd. |
 | `/gangbeheer herstel` | `gang`* | Maakt ontbrekende rollen, de categorie en ontbrekende kanalen opnieuw aan, zet alle permissies terug zoals ze horen en zet de rollenlijst weer op volgorde. Je eerste hulp als er per ongeluk iets verwijderd is. |
-| `/gangbeheer rolweergave` | (geen) | Zet bij **alle** gangrollen het vinkje *Rolleden los van online leden weergeven* goed, zodat elke gang een eigen kopje in de ledenlijst krijgt. Bedoeld als eenmalige migratie voor gangs die al bestonden; nieuwe gangs krijgen dit meteen. Een rol die al goed staat wordt overgeslagen, dus twee keer draaien kan geen kwaad. |
 
 Bij elke `gang`-optie krijg je tijdens het typen suggesties (autocomplete): begin de naam
 te typen en kies uit de lijst.
@@ -962,13 +961,9 @@ staat dus onder `Rayuza Boss` en niet óók onder `Rayuza`. De aantallen per kop
 daardoor niet op tot de ledenlimiet; die telling doe je met `/gang info`.
 
 > **Liever één kopje per gang?** Zet `boss` en `underboss` in `ROLE_HOIST`
-> ([src/lib/constants.js](src/lib/constants.js)) op `false` en draai daarna
-> `/gangbeheer rolweergave`. Die migratie werkt beide kanten op.
-
-> **Gangs van vóór deze versie** staan nog niet goed: draai eenmalig
-> `/gangbeheer rolweergave`. Dat loopt alle gangs uit `owc.json` langs en slaat over wat al
-> klopt. Rollen die je met de hand hebt gemaakt en die de bot niet kent, blijven buiten
-> schot - die zet je zelf om in Serverinstellingen → Rollen.
+> ([src/lib/constants.js](src/lib/constants.js)) op `false`. Nieuwe gangs volgen dat
+> meteen; bestaande gangs trek je bij met `/gangbeheer herstel gang:<naam>`, dat de
+> weergave van de drie rollen ook rechtzet.
 
 De bot zet de drie rollen meteen als **één blokje** in de rollenlijst, met de hoogste rang
 bovenaan:

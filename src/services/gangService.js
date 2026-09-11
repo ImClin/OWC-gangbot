@@ -1941,48 +1941,6 @@ async function fixRoleHoist(guild, gang, reason, changes) {
 }
 
 /**
- * Zet de weergave-instelling van ALLE gangrollen op de server goed.
- *
- * Bedoeld als eenmalige migratie voor servers waar de gangs al bestonden voordat deze
- * instelling er was, en als reparatie zodra iemand het vinkje met de hand omzet. Doet niets
- * bij een rol die al goed staat, dus hem twee keer draaien kan geen kwaad.
- *
- * @param {import('discord.js').Guild} guild De server.
- * @returns {Promise<{ok: boolean, aangepast: number, gangs: number, meldingen: string[], error: string|null}>} Resultaat.
- */
-async function applyRoleHoist(guild) {
-  if (!guild || !guild.id) {
-    return {
-      ok: false, aangepast: 0, gangs: 0, meldingen: [], error: 'Interne fout: er is geen server meegegeven.',
-    };
-  }
-
-  let gangs = [];
-  try {
-    gangs = store.listGangs(guild.id) || [];
-  } catch (err) {
-    return {
-      ok: false,
-      aangepast: 0,
-      gangs: 0,
-      meldingen: [],
-      error: `De gangs konden niet gelezen worden (${err.message}), dus er is niets aangepast.`,
-    };
-  }
-
-  const reason = auditReason('Weergave van de gangrollen in de ledenlijst bijgewerkt');
-  const meldingen = [];
-  let aangepast = 0;
-  for (const gang of gangs) {
-    aangepast += await fixRoleHoist(guild, gang, reason, meldingen);
-  }
-
-  return {
-    ok: true, aangepast, gangs: gangs.length, meldingen, error: null,
-  };
-}
-
-/**
  * Zorgt dat de categorie van de gang bestaat; maakt hem anders opnieuw aan.
  *
  * @param {import('discord.js').Guild} guild De server.
@@ -2964,6 +2922,4 @@ module.exports = {
   // De rollenlijst van de server: per gang een blokje met Boss, Underboss en de gangrol
   // onder elkaar, gangs onderling op aanmaakvolgorde.
   applyRoleOrder,
-  // Zet bij alle gangrollen het vinkje "apart weergeven in de ledenlijst" goed.
-  applyRoleHoist,
 };
