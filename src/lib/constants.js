@@ -209,16 +209,42 @@ const CATEGORY_PERMS = {
     PermissionFlagsBits.SendMessages,
   ],
 
-  // Extra rechten die de gangrol krijgt in de gedeelde (server-brede) categorieen.
+  // Wat de gangrol krijgt in de gedeelde (server-brede) categorieen: erbij mogen zijn en
+  // meelezen. Meer niet - daar voert de staff het woord.
   shared: [
     PermissionFlagsBits.ViewChannel,
     PermissionFlagsBits.ReadMessageHistory,
+    PermissionFlagsBits.Connect,
+  ],
+
+  // En wat daar voor de gangrol juist dicht gaat. Expliciet weigeren, niet alleen weglaten:
+  // de bot schrijft overwrites weg met een merge, dus een recht dat eerder toegestaan was
+  // blijft anders gewoon staan. De thread-rechten horen erbij, want een thread is een
+  // achterdeur naar hetzelfde kanaal.
+  sharedDeny: [
     PermissionFlagsBits.SendMessages,
+    PermissionFlagsBits.SendMessagesInThreads,
+    PermissionFlagsBits.CreatePublicThreads,
+    PermissionFlagsBits.CreatePrivateThreads,
+    PermissionFlagsBits.Speak,
+    PermissionFlagsBits.Stream,
+  ],
+
+  // De staffrol is de enige die in een gedeelde categorie wel het woord voert.
+  sharedStaff: [
+    PermissionFlagsBits.ViewChannel,
+    PermissionFlagsBits.ReadMessageHistory,
+    PermissionFlagsBits.SendMessages,
+    PermissionFlagsBits.SendMessagesInThreads,
     PermissionFlagsBits.AddReactions,
     PermissionFlagsBits.AttachFiles,
     PermissionFlagsBits.EmbedLinks,
+    PermissionFlagsBits.UseExternalEmojis,
+    PermissionFlagsBits.ManageMessages,
     PermissionFlagsBits.Connect,
     PermissionFlagsBits.Speak,
+    PermissionFlagsBits.Stream,
+    PermissionFlagsBits.UseVAD,
   ],
 };
 

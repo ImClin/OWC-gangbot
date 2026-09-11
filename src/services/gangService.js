@@ -2191,14 +2191,28 @@ async function syncSharedCategories(guild, gang) {
   if (!categoryIds.length) return { ok: true, added: 0, error: null };
 
   const reason = auditReason(`Gedeelde categorie opengezet voor gang ${gang.name || gang.slug || gang.roleId}`);
-  const entry = normalizeEntry({
+  // Ook hier alleen rechten die de bot zelf heeft: anders weigert Discord de hele overwrite
+  // met 50013 en krijgt de gang geen toegang tot de gedeelde categorie.
+  const botPerms = botGuildPermissions(guild);
+
+  const entries = [normalizeEntry({
     id: gang.roleId,
     type: OverwriteType.Role,
-    // Ook hier alleen rechten die de bot zelf heeft: anders weigert Discord de hele
-    // overwrite met 50013 en krijgt de gang geen toegang tot de gedeelde categorie.
-    allow: allowedBits(botGuildPermissions(guild), CATEGORY_PERMS.shared),
-    deny: [],
-  });
+    allow: allowedBits(botPerms, CATEGORY_PERMS.shared),
+    deny: allowedBits(botPerms, CATEGORY_PERMS.sharedDeny),
+  })];
+
+  // De staffrol voert hier als enige het woord. Hij stond er tot nu toe helemaal niet in:
+  // de bot zette alleen de gangrol neer, dus staff was afhankelijk van een regel die iemand
+  // met de hand op de categorie gezet had.
+  if (guildConfig.staffRoleId) {
+    entries.push(normalizeEntry({
+      id: guildConfig.staffRoleId,
+      type: OverwriteType.Role,
+      allow: allowedBits(botPerms, CATEGORY_PERMS.sharedStaff),
+      deny: [],
+    }));
+  }
 
   let added = 0;
   let mislukt = 0;
@@ -2209,7 +2223,7 @@ async function syncSharedCategories(guild, gang) {
       missing.push(categoryId);
       continue;
     }
-    const result = await applyOverwrites(category, [entry], reason);
+    const result = await applyOverwrites(category, entries, reason);
     added += result.updated;
     mislukt += result.mislukt;
   }

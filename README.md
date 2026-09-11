@@ -583,7 +583,7 @@ Alleen bruikbaar met het serverrecht **Server beheren**. Alle antwoorden zijn ep
 | `/setup staffrol` | `rol`* | Bepaalt welke rol als staff geldt binnen het gangbeheer (naast het serverrecht *Server beheren*). |
 | `/setup meldrol` | `rol` (optioneel) | Welke rol een **ping** krijgt in het logkanaal als de bot er niet uitkomt — bijvoorbeeld een lid dat de gangrol van twee gangs tegelijk heeft. Deze rol krijgt hier **geen rechten** van. Laat `rol` leeg om de ping weer uit te zetten; de melding zelf blijft dan gewoon komen. |
 | `/setup bodemrol` | `rol` (optioneel) | Houdt alle gangrollen altijd **boven** deze rol in de rollenlijst, ook nieuwe. Wordt meteen toegepast op de bestaande gangrollen. Laat `rol` leeg om de ondergrens weer uit te zetten. `@everyone` en gangrollen worden geweigerd. |
-| `/setup gedeelde-categorie` | `categorie`*, `actie`* (`toevoegen` / `verwijderen`), `sync_kinderen` (ja/nee, standaard nee) | Beheert de lijst categorieen waar alle gangs toegang toe krijgen. `sync_kinderen:ja` **overschrijft de permissies van de kanalen in die categorie** - gebruik met beleid. |
+| `/setup gedeelde-categorie` | `categorie`*, `actie`* (`toevoegen` / `verwijderen`), `sync_kinderen` (ja/nee, standaard nee) | Beheert de lijst categorieen waar alle gangs toegang toe krijgen. Gangs mogen daar **kijken en meelezen, maar niet typen of praten**; alleen de **staffrol** voert er het woord. `sync_kinderen:ja` **overschrijft de permissies van de kanalen in die categorie** - gebruik met beleid. |
 | `/setup limieten` | `leden` (1-100), `bosses` (1-10), `underbosses` (0-10) | Zet de standaardlimieten voor **nieuwe** gangs. Bestaande gangs veranderen niet. |
 | `/setup dashboard` | `kanaal`* | Kiest het kanaal voor het live bezettingsoverzicht en post het bericht meteen. |
 | `/setup toon` | (geen) | Toont de huidige configuratie, een checklist van wat nog ontbreekt en welke botrechten missen. |
@@ -1039,9 +1039,28 @@ En buiten de gangcategorie, in de twee registers van de server:
 
 ### Gedeelde categorieen
 
-Heb je met `/setup gedeelde-categorie` categorieen aangemeld, dan krijgt de gangrol daar
-bij het aanmaken automatisch toegang toe: kijken, geschiedenis lezen, berichten sturen,
-reacties, bestanden, links, en deelnemen en praten in spraak.
+Heb je met `/setup gedeelde-categorie` categorieen aangemeld, dan zet de bot daar twee
+rechtenregels neer.
+
+| Wie | Zien en meelezen | Typen en praten |
+|---|---|---|
+| De **gangrol** van elke gang | Ja, en ze mogen aanschuiven in spraak (`Deelnemen`) | **Nee** — typen, threads, spreken en streamen staan dicht |
+| De **staffrol** (`/setup staffrol`) | Ja | **Ja**, inclusief opruimen |
+
+Zo is een gedeelde categorie een plek waar alle gangs meekijken en meeluisteren, maar waar
+alleen de staff het woord voert.
+
+De weigering voor de gangrol staat er **expliciet** in, niet door het recht gewoon weg te
+laten. De bot schrijft kanaalrechten namelijk weg met een merge: een recht dat uit de lijst
+verdwijnt wordt daarmee niet ingetrokken op een categorie die het al had staan.
+
+> **Kwam je van een oudere versie?** Daar mocht de gangrol er wél typen en praten, en stond
+> de staffrol er helemaal niet in. Draai `/gangbeheer herstel` (zonder gang) om alle gangs
+> in één keer bij te trekken.
+
+De **extrarollen** uit `/setup extrarollen` raakt de bot in een gedeelde categorie niet aan:
+die categorieen heb je zelf ingericht, dus wat daar voor andere rollen geldt laat de bot
+staan zoals het staat.
 
 ---
 
