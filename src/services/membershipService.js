@@ -240,7 +240,7 @@ function checkRoles(guild, gang, entries) {
     return fail(
       'MISSING_ROLE',
       `De rol ${missing.join(', ')} bestaat niet meer op de server. `
-        + `Laat staff /gang herstel uitvoeren voor ${gang?.name || 'deze gang'}.`,
+        + `Laat staff /gangbeheer herstel uitvoeren voor ${gang?.name || 'deze gang'}.`,
     );
   }
   if (blocked.length) {
@@ -444,7 +444,7 @@ async function fetchMember(guild, userId) {
  */
 function checkLimits(gang, counts, config, staff) {
   if (!counts || !counts.memberFull) return null;
-  const staffTip = staff ? ' Staff kan de limiet verhogen met /gang limiet leden:<aantal>.' : '';
+  const staffTip = staff ? ' Staff kan de limiet verhogen met /gangbeheer limiet leden:<aantal>.' : '';
   return fail(
     'LIMIT_REACHED',
     `${gang.name} zit vol (${counts.members}/${counts.memberLimit} leden). `
@@ -814,7 +814,7 @@ function checkLeadership(guild, gang, targetMember, kind) {
       return fail(
         'LEADERSHIP_FULL',
         `${gang.name} heeft al ${bezet}/${limiet} ${meervoud}. Degradeer er eerst één met `
-          + `\`/gang degradeer\`, of verhoog de limiet met \`/gang limiet ${optie}:<aantal>\`.`,
+          + `\`/gang degradeer\`, of verhoog de limiet met \`/gangbeheer limiet ${optie}:<aantal>\`.`,
         { counts },
       );
     }
@@ -830,7 +830,7 @@ function checkLeadership(guild, gang, targetMember, kind) {
  * telt vanaf dat moment mee. Zonder deze controle is /gang promoveer een omweg langs
  * memberLimit. Zit de persoon al in de gang, dan verandert de bezetting niet en mag de
  * ledenlimiet hem nooit tegenhouden - vandaar de toets op de GEPROJECTEERDE telling.
- * Promoveren kent bewust geen bypassLimit; de melding wijst staff naar /gang limiet.
+ * Promoveren kent bewust geen bypassLimit; de melding wijst staff naar /gangbeheer limiet.
  *
  * @param {import('discord.js').Guild} guild De server.
  * @param {object} gang Het GangRecord.
@@ -851,7 +851,7 @@ function checkLeadershipLimits(guild, gang, plan, normalized, config) {
     'LIMIT_REACHED',
     `${gang.name} komt hierdoor boven de limiet (${members}/${before.memberLimit} leden). `
       + `Ontsla eerst iemand in ${fireChannelRef(config)} of verhoog de limiet met `
-      + '/gang limiet leden:<aantal>.',
+      + '/gangbeheer limiet leden:<aantal>.',
     { counts: before },
   );
 }
@@ -1351,7 +1351,7 @@ function finishRevert(guild, ctx) {
   if (counts.members > counts.memberLimit) {
     notes.push(
       `Let op: ${gang.name} zit hierdoor boven de limiet (${formatCapacity(counts)}). `
-        + 'Verhoog de limiet met `/gang limiet leden:<aantal>` of ontsla iemand.',
+        + 'Verhoog de limiet met `/gangbeheer limiet leden:<aantal>` of ontsla iemand.',
     );
   }
 

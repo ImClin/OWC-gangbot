@@ -501,7 +501,7 @@ async function logResults(guild, gang, results, counts) {
         `⚠️ ${gang.name} zit vol`,
         `${formatCapacity(counts)}\n\nDe ledenlimiet is bereikt. `
           + 'Er kan pas weer iemand bij als er eerst iemand ontslagen wordt, of als staff de '
-          + 'limiet verhoogt met `/gang limiet leden:<aantal>`.',
+          + 'limiet verhoogt met `/gangbeheer limiet leden:<aantal>`.',
       ),
     );
   } catch (err) {
@@ -710,7 +710,7 @@ module.exports = {
         await react(message, '❌');
         await replyTemporary(
           message,
-          errorEmbed('Nog geen gangs', 'Er is nog geen enkele gang aangemaakt. Staff maakt er een met `/gang aanmaken`.'),
+          errorEmbed('Nog geen gangs', 'Er is nog geen enkele gang aangemaakt. Staff maakt er een met `/gangbeheer aanmaken`.'),
           ERROR_DELETE_MS,
         );
         return;

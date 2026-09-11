@@ -211,7 +211,7 @@ async function reportChange(guild, member, executor, change) {
     `Uitgevoerd door <@${executor.id}>.`,
     counts ? `Bezetting: ${formatCapacity(counts)}` : null,
     overLimiet
-      ? '⚠️ Hierdoor zit deze gang **boven** de ingestelde ledenlimiet. Corrigeer het met `/gang ontslaan` of verhoog de limiet met `/gang limiet leden:<aantal>`.'
+      ? '⚠️ Hierdoor zit deze gang **boven** de ingestelde ledenlimiet. Corrigeer het met `/gang ontslaan` of verhoog de limiet met `/gangbeheer limiet leden:<aantal>`.'
       : null,
     'Gebruik het #aangenomen- of #ontslagen-kanaal (of `/gang aannemen`) zodat de limieten bewaakt blijven.',
   ].filter(Boolean).join('\n');

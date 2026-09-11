@@ -301,7 +301,7 @@ function migrateGangLimits(gang) {
   logger.info(
     `store: gang "${gang.name || gang.id}" is omgezet naar een enkele ledenlimiet. `
     + `${oudLeden} leden + ${oudMeelopers} meelopers met een hard totaal van ${oudTotaal} `
-    + `wordt ${gang.memberLimit} leden. Aanpassen kan met /gang limiet leden:<aantal>.`,
+    + `wordt ${gang.memberLimit} leden. Aanpassen kan met /gangbeheer limiet leden:<aantal>.`,
   );
 }
 
@@ -373,7 +373,7 @@ function normalizeGang(raw, cfg) {
   out.bossRoleId = asId(src.bossRoleId);
   out.underbossRoleId = asId(src.underbossRoleId);
   // meeloperRoleId is geen veld van een gang meer, maar blijft bij oude records staan zolang de
-  // achtergebleven Discord-rol nog opgeruimd moet worden. /gang herstel en /gang verwijder ruimen
+  // achtergebleven Discord-rol nog opgeruimd moet worden. /gangbeheer herstel en /gang verwijder ruimen
   // die rol op en zetten het veld daarna op null, waarna het hier definitief verdwijnt.
   const legacyMeeloperRoleId = asId(out.meeloperRoleId);
   if (legacyMeeloperRoleId) out.meeloperRoleId = legacyMeeloperRoleId;

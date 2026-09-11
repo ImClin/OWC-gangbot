@@ -46,7 +46,7 @@ const membershipService = require('../services/membershipService');
 const logService = require('../services/logService');
 const dashboardService = require('../services/dashboardService');
 
-/** Hoelang de bevestigingsknoppen van /gang verwijderen bruikbaar blijven. */
+/** Hoelang de bevestigingsknoppen van /gangbeheer verwijderen bruikbaar blijven. */
 const CONFIRM_TIMEOUT_MS = 60 * 1000;
 
 /** Discord staat maximaal 25 autocomplete-suggesties toe. */
@@ -226,7 +226,7 @@ function gangLabel(gang) {
  */
 function gangChoicesText(gangs) {
   const list = Array.isArray(gangs) ? gangs.filter(Boolean) : [];
-  if (!list.length) return 'Er zijn nog geen gangs aangemaakt; gebruik `/gang aanmaken`.';
+  if (!list.length) return 'Er zijn nog geen gangs aangemaakt; gebruik `/gangbeheer aanmaken`.';
   const shown = list.slice(0, MAX_LISTED_GANGS).map((gang) => gang.name).join(', ');
   const rest = list.length - Math.min(list.length, MAX_LISTED_GANGS);
   return `Beschikbaar: ${truncate(shown, 400)}${rest > 0 ? ` en nog ${rest} andere` : ''}.`;
@@ -524,13 +524,13 @@ function warnIfFull(guild, gang, counts) {
       `${gangLabel(gang)} zit vol`,
       `${gang.name} heeft de ledenlimiet bereikt: ${formatCapacity(counts)}.`
         + ' Er kan pas weer iemand bij nadat er iemand ontslagen is, of nadat staff de limiet'
-        + ' verhoogt met `/gang limiet leden:<aantal>`.',
+        + ' verhoogt met `/gangbeheer limiet leden:<aantal>`.',
     ),
   );
 }
 
 // ---------------------------------------------------------------------------
-// /gang aanmaken
+// /gangbeheer aanmaken
 // ---------------------------------------------------------------------------
 
 /**
@@ -582,7 +582,7 @@ async function handleAanmaken(ctx) {
 }
 
 // ---------------------------------------------------------------------------
-// /gang verwijderen
+// /gangbeheer verwijderen
 // ---------------------------------------------------------------------------
 
 /**
@@ -751,7 +751,7 @@ function scheduleConfirmExpiry(interaction, ids, gang) {
       embeds: [infoEmbed(
         'Bevestiging verlopen',
         `Er is 60 seconden lang niet bevestigd; ${gang.name} is NIET verwijderd.`
-          + ' Voer `/gang verwijderen` opnieuw uit als je het alsnog wilt doen.',
+          + ' Voer `/gangbeheer verwijderen` opnieuw uit als je het alsnog wilt doen.',
       )],
       components: [buildConfirmRow(ids.confirmId, ids.cancelId, true)],
     });
@@ -795,7 +795,7 @@ async function handleVerwijderen(ctx) {
 }
 
 // ---------------------------------------------------------------------------
-// Knoppen van /gang verwijderen (enige afhandelaar)
+// Knoppen van /gangbeheer verwijderen (enige afhandelaar)
 // ---------------------------------------------------------------------------
 
 /**
@@ -922,7 +922,7 @@ async function confirmDeleteClick(interaction, parts) {
       'Bevestiging verlopen',
       'Deze knop komt uit een oudere versie of een eerdere sessie van de bot, dus ik weet niet meer'
         + ' of de rollen behouden moesten blijven. Er is niets verwijderd.'
-        + ' Voer `/gang verwijderen` opnieuw uit.',
+        + ' Voer `/gangbeheer verwijderen` opnieuw uit.',
     ), []);
     return;
   }
@@ -947,7 +947,7 @@ async function confirmDeleteClick(interaction, parts) {
     await replyToClick(interaction, infoEmbed(
       'Al geannuleerd',
       'Deze bevestiging is geannuleerd, dus er is niets verwijderd en de gang bestaat nog.'
-        + ' Voer `/gang verwijderen` opnieuw uit als je het alsnog wilt doen.',
+        + ' Voer `/gangbeheer verwijderen` opnieuw uit als je het alsnog wilt doen.',
     ));
     return;
   }
@@ -957,7 +957,7 @@ async function confirmDeleteClick(interaction, parts) {
     await updateClickMessage(interaction, warningEmbed(
       'Bevestiging verlopen',
       'Deze bevestiging is niet meer geldig: de 60 seconden zijn voorbij of de bot is opnieuw'
-        + ' gestart. Er is niets verwijderd. Voer `/gang verwijderen` opnieuw uit.',
+        + ' gestart. Er is niets verwijderd. Voer `/gangbeheer verwijderen` opnieuw uit.',
     ), []);
     return;
   }
@@ -996,13 +996,13 @@ async function confirmDeleteClick(interaction, parts) {
     await runConfirmedDelete(interaction, gang, deleteRoles, interaction.user.id);
   } finally {
     // Ook na een fout blijft deze knop dood: het bericht is al bijgewerkt en een nieuwe
-    // poging hoort via een nieuw /gang verwijderen te lopen.
+    // poging hoort via een nieuw /gangbeheer verwijderen te lopen.
     markConfirmHandled(customId);
   }
 }
 
 /**
- * Handelt de knoppen van `/gang verwijderen` af:
+ * Handelt de knoppen van `/gangbeheer verwijderen` af:
  * `owc:confirmdelete:<gangId>:<rollen 0|1>:<eigenaarId>` en
  * `owc:cancel:<gangId>:<rollen 0|1>:<eigenaarId>`.
  *
@@ -1038,7 +1038,7 @@ async function handleButton(interaction) {
   if (ownerId && ownerId !== interaction.user.id) {
     await replyToClick(interaction, errorEmbed(
       'Niet jouw bevestiging',
-      'Alleen degene die `/gang verwijderen` uitvoerde mag deze knop gebruiken.'
+      'Alleen degene die `/gangbeheer verwijderen` uitvoerde mag deze knop gebruiken.'
         + ' Voer het commando zelf uit als je deze gang wilt verwijderen.',
     ));
     return true;
@@ -1138,7 +1138,7 @@ async function handleInfo(ctx) {
 }
 
 // ---------------------------------------------------------------------------
-// /gang hernoemen en /gang limiet
+// /gangbeheer hernoemen en /gangbeheer limiet
 // ---------------------------------------------------------------------------
 
 /**
@@ -1189,7 +1189,7 @@ async function handleHernoemen(ctx) {
 
   const nieuw = gangLabel(result.gang);
   // Zeggen waar de kanaalnaam vandaan komt: anders lijkt een korte kanaalnaam bij een lange
-  // gangnaam een fout, en weet staff niet dat /gang hernoemen die afkorting kan weghalen.
+  // gangnaam een fout, en weet staff niet dat /gangbeheer hernoemen die afkorting kan weghalen.
   const herkomst = result.gang.abbreviation
     ? `afkorting \`${result.gang.abbreviation}\``
     : 'de volledige naam';
@@ -1494,7 +1494,7 @@ async function handleOntslaan(ctx) {
 }
 
 // ---------------------------------------------------------------------------
-// /gang herstel en /gang historie
+// /gangbeheer herstel en /gang historie
 // ---------------------------------------------------------------------------
 
 /**
@@ -2016,7 +2016,7 @@ function matchRank(gang, needle) {
 }
 
 // handleButton hoort bij de export: events/interactionCreate.js geeft de knoppen van
-// /gang verwijderen hierheen door en handelt ze zelf niet meer af (één eigenaar).
+// /gangbeheer verwijderen hierheen door en handelt ze zelf niet meer af (één eigenaar).
 module.exports = {
   data,
   execute,

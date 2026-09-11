@@ -119,7 +119,7 @@ async function restoreFlowChannelLock(guild) {
   } catch (err) {
     logger.warn(
       `De schrijfrechten van #aangenomen en #ontslagen konden in ${describeGuild(guild)} niet `
-        + 'gezet worden. Voer /gang herstel uit zodra de bot draait; tot die tijd kan daar '
+        + 'gezet worden. Voer /gangbeheer herstel uit zodra de bot draait; tot die tijd kan daar '
         + 'mogelijk iedereen typen.',
       err,
     );

@@ -266,7 +266,7 @@ async function handleRevertButton(interaction, rawId) {
  * `owc:cancel:<gangId>:<rollen 0|1>:<eigenaarId>` door aan de enige afhandelaar:
  * `handleButton()` in src/commands/gang.js.
  *
- * WAAROM dit bestand hier zelf niets meer doet: eerder handelde `/gang verwijderen` zijn
+ * WAAROM dit bestand hier zelf niets meer doet: eerder handelde `/gangbeheer verwijderen` zijn
  * knoppen met een collector af TERWIJL dit bestand er een eigen terugvalpad voor had. Die
  * twee raceten om dezelfde klik (de wachttijd van 400 ms was een gok, want
  * ButtonInteraction#update zet `replied` pas ná de REST-call), waardoor
@@ -317,7 +317,7 @@ async function handleDeleteButtons(interaction) {
     warningEmbed(
       'Knop niet herkend',
       'Deze knop hoort niet bij een lopende bevestiging. Er is niets verwijderd;'
-        + ' voer `/gang verwijderen` opnieuw uit.',
+        + ' voer `/gangbeheer verwijderen` opnieuw uit.',
     ),
   );
 }

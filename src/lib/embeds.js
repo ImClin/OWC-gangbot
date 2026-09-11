@@ -523,7 +523,7 @@ function gangInfoEmbed(gang, counts, guild, options = {}) {
     bar || null,
     `**${text}**`,
     g.categoryId
-      ? `Categorie: ${category ? `<#${g.categoryId}>` : '*niet gevonden — gebruik `/gang herstel`*'}`
+      ? `Categorie: ${category ? `<#${g.categoryId}>` : '*niet gevonden — gebruik `/gangbeheer herstel`*'}`
       : null,
     detail && g.slug ? `Kanaalnamen: \`${g.slug}\`${g.abbreviation ? ' *(afkorting)*' : ''}` : null,
     detail && g.createdAt
@@ -547,7 +547,7 @@ function gangInfoEmbed(gang, counts, guild, options = {}) {
     addField(
       embed,
       '⚠️ Ontbrekende rollen',
-      `${cut(missing.join(', '), 900)}\nGebruik \`/gang herstel\` om ze opnieuw aan te maken.`,
+      `${cut(missing.join(', '), 900)}\nGebruik \`/gangbeheer herstel\` om ze opnieuw aan te maken.`,
     );
   }
 
@@ -558,7 +558,7 @@ function gangInfoEmbed(gang, counts, guild, options = {}) {
       `Deze gang zit vol: ${Number(c.members) || 0}/${memberLimit} leden.`
         + (detail
           ? ' Ontsla eerst iemand met `/gang ontslaan`, of verhoog de limiet met'
-            + ' `/gang limiet leden:<aantal>`.'
+            + ' `/gangbeheer limiet leden:<aantal>`.'
           : ' Er kan pas weer iemand bij als de leiding ruimte maakt.'),
     );
   }
@@ -577,7 +577,7 @@ function gangListEmbed(gangs, countsByGangId) {
   const embed = baseEmbed(color('info')).setTitle(`📋 Gangs (${list.length})`);
 
   if (!list.length) {
-    embed.setDescription('Er zijn nog geen gangs aangemaakt. Gebruik `/gang aanmaken` om te beginnen.');
+    embed.setDescription('Er zijn nog geen gangs aangemaakt. Gebruik `/gangbeheer aanmaken` om te beginnen.');
     return embed;
   }
 

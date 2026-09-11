@@ -323,7 +323,7 @@ function botHasBit(permissions, bit) {
  *
  * WAAROM DIT MOET BLIJVEN: Discord weigert een complete channels.create of
  * permissionOverwrites.edit met 50013 zodra je een recht uitdeelt OF weigert dat je zelf
- * niet hebt. Zonder dit filter mislukt /gang aanmaken volledig (en wordt de hele gang
+ * niet hebt. Zonder dit filter mislukt /gangbeheer aanmaken volledig (en wordt de hele gang
  * teruggedraaid) op elke server waar de botrol geen MuteMembers, DeafenMembers,
  * MoveMembers, PrioritySpeaker of ManageMessages heeft - en dat erft de bot nooit via
  * @everyone. Wat wegvalt wordt gemeld via overwritePermissionNotice; stil strippen mag
@@ -389,7 +389,7 @@ function overwritePermissionNotice(guild) {
   return `Let op: de bot heeft deze serverrechten zelf niet: ${missing.join(', ')}.`
     + ' Discord staat niet toe dat de bot ze uitdeelt, dus ze zijn overgeslagen in de'
     + ' kanaalpermissies. Zet ze aan bij Serverinstellingen > Rollen en voer daarna'
-    + ' /gang herstel uit om ze alsnog te zetten.';
+    + ' /gangbeheer herstel uit om ze alsnog te zetten.';
 }
 
 /**
@@ -568,7 +568,7 @@ function missingGlobalRoleNotice(guild, guildConfig) {
  *   - de drie rollen van DEZE gang: die hebben hun eigen set, met bewust géén Speak in de
  *     eigen categorie. Bij een ANDERE gang blijft zo'n rol gewoon een normale extrarol.
  * Rollen die van de server verwijderd zijn vallen ook af: Discord weigert een overwrite voor
- * een onbekend id, en dan mislukt een complete /gang aanmaken (inclusief rollback).
+ * een onbekend id, en dan mislukt een complete /gangbeheer aanmaken (inclusief rollback).
  *
  * @param {import('discord.js').Guild|null|undefined} guild De server.
  * @param {object|null|undefined} gang Het GangRecord (of concept) waar de overwrites bij horen.
@@ -782,7 +782,7 @@ async function applyOverwrites(channel, entries, reason) {
  * Verwijdert rol-overwrites die niet in de gewenste eindstand voorkomen.
  *
  * WAAROM DIT ER MOET ZIJN: applyOverwrites doet alleen `edit` (een merge) en verwijdert
- * nooit iets. Zonder deze stap kan /gang herstel te RUIME rechten niet dichtzetten: de
+ * nooit iets. Zonder deze stap kan /gangbeheer herstel te RUIME rechten niet dichtzetten: de
  * overwrite van een oude staffrol, of een rol die iemand met de hand aan het bosskanaal
  * heeft toegevoegd, blijft dan voor altijd staan terwijl de bot meldt "alles was al in orde".
  *
@@ -1075,7 +1075,7 @@ function validateCreateOptions(guild, opts) {
   if (essential.length) return { ok: false, error: essentialPermissionError(essential) };
 
   // Dezelfde regel als bij /gang aannemen en /gang promoveer: niemand zit in twee gangs
-  // tegelijk. Zonder deze check is /gang aanmaken de enige route waarlangs de bot dat zelf
+  // tegelijk. Zonder deze check is /gangbeheer aanmaken de enige route waarlangs de bot dat zelf
   // veroorzaakt (dubbele tellingen, twee #aangenomen-kanalen, 'Welke gang bedoel je?').
   const bossConflict = findGangOfMember(guild, opts?.bossMember);
   if (bossConflict) {
@@ -1316,7 +1316,7 @@ function roleOrderTooLowError(aantal, bodem) {
   return `De rol van de bot staat te laag in de rollenlijst: de ${aantal} gangrollen passen er`
     + ' niet allemaal onder, dus de volgorde is niet aangepast (er is niets verplaatst).'
     + ' Sleep in Serverinstellingen > Rollen de rol van de bot boven alle gangrollen en voer'
-    + ` daarna /gang herstel uit.${bodemUitleg}`;
+    + ` daarna /gangbeheer herstel uit.${bodemUitleg}`;
 }
 
 /**
@@ -1358,7 +1358,7 @@ async function applyRoleOrder(guild) {
       ok: false,
       verplaatst: 0,
       error: 'De gangs konden niet uit data/owc.json gelezen worden, dus de rolvolgorde is'
-        + ' niet aangepast. Controleer het bestand en voer /gang herstel uit.',
+        + ' niet aangepast. Controleer het bestand en voer /gangbeheer herstel uit.',
     };
   }
 
@@ -1381,7 +1381,7 @@ async function applyRoleOrder(guild) {
       verplaatst: 0,
       error: 'De bot kan zijn eigen plek in de rollenlijst nu niet bepalen (de server is nog'
         + ' niet volledig ingeladen), dus er is niets verplaatst. Probeer het zo opnieuw met'
-        + ' /gang herstel.',
+        + ' /gangbeheer herstel.',
     };
   }
 
@@ -1468,7 +1468,7 @@ async function orderRolesQuietly(guild, watGebeurde) {
  * droeg houdt zijn gangrol en is dus gewoon lid.
  *
  * Mislukt het verwijderen, dan is dat geen blokkade: warn loggen en doorgaan. Het id blijft
- * dan in de opslag staan, zodat een volgende /gang herstel het opnieuw kan proberen.
+ * dan in de opslag staan, zodat een volgende /gangbeheer herstel het opnieuw kan proberen.
  *
  * @param {import('discord.js').Guild} guild De server.
  * @param {object} gang Het GangRecord (mogelijk nog met het oude rol-id erin).
@@ -1487,7 +1487,7 @@ async function cleanupLegacyRole(guild, gang, reason) {
   } catch (err) {
     logger.warn(
       `gangService: de achtergebleven rol ${naam} kon niet verwijderd worden (${err?.message || err}).`
-      + ' Verwijder hem met de hand in Serverinstellingen > Rollen, of probeer /gang herstel opnieuw.',
+      + ' Verwijder hem met de hand in Serverinstellingen > Rollen, of probeer /gangbeheer herstel opnieuw.',
     );
     return { opgeruimd: false, naam };
   }
@@ -1561,7 +1561,7 @@ async function createGang(guild, opts) {
     if (warning) logger.warn(`gangService: ${warning}`);
 
     // De nieuwe boss- en underbossrol moeten meteen in #aangenomen en #ontslagen kunnen typen;
-    // anders kan een kersverse boss zijn eigen leden pas aannemen na een /gang herstel. Een fout
+    // anders kan een kersverse boss zijn eigen leden pas aannemen na een /gangbeheer herstel. Een fout
     // hier mag de aanmaak NOOIT terugdraaien: de gang staat er al en werkt verder gewoon.
     try {
       const flow = await applyFlowChannelPermissions(guild);
@@ -1574,7 +1574,7 @@ async function createGang(guild, opts) {
         'gangService: de schrijfrechten van de aangenomen-/ontslagen-kanalen konden niet'
         + ` bijgewerkt worden na het aanmaken van ${draft.name}`
         + ` (${flowErr?.message || 'onbekende fout'}). De gang zelf is gewoon aangemaakt;`
-        + ' voer /gang herstel uit om dit alsnog recht te zetten.',
+        + ' voer /gangbeheer herstel uit om dit alsnog recht te zetten.',
       );
     }
 
@@ -1593,7 +1593,7 @@ async function createGang(guild, opts) {
  * Het GangRecord verdwijnt ALLEEN uit de opslag als alles daadwerkelijk opgeruimd is. Lukte
  * er iets niet, dan blijft het record staan en komt er `ok: false` terug met wat er handmatig
  * of na een rechtenfix nog moet gebeuren - anders blijven er weesrollen achter die met geen
- * enkel commando meer op te ruimen zijn (/gang verwijderen en /gang herstel vinden de gang
+ * enkel commando meer op te ruimen zijn (/gangbeheer verwijderen en /gangbeheer herstel vinden de gang
  * dan niet meer).
  *
  * @param {import('discord.js').Guild} guild De server.
@@ -1614,7 +1614,7 @@ async function deleteGang(guild, gang, opts) {
   // Voorcontrole: kan de bot de gangrollen überhaupt verwijderen? Staat de botrol eronder
   // (dat gebeurt zodra staff de gangrollen netjes bovenaan sleept), dan faalt elke roldelete
   // met 50013 terwijl de kanalen al weg zijn. Nu breken we af vóór de eerste delete, zodat
-  // /gang verwijderen gewoon herhaalbaar blijft zodra de rolvolgorde klopt.
+  // /gangbeheer verwijderen gewoon herhaalbaar blijft zodra de rolvolgorde klopt.
   if (deleteRoles && canCompareRolePositions(guild)) {
     const blocked = [];
     for (const roleId of [gang.bossRoleId, gang.underbossRoleId, gang.roleId]) {
@@ -1627,7 +1627,7 @@ async function deleteGang(guild, gang, opts) {
         error: `De bot kan de rollen ${blocked.join(', ')} niet verwijderen omdat de botrol`
           + ' eronder staat (of het beheerde rollen zijn). Er is nog niets verwijderd. Sleep in'
           + ' Serverinstellingen > Rollen de rol van de bot boven de gangrollen en voer'
-          + ' /gang verwijderen opnieuw uit, of kies rollen_verwijderen: Nee.',
+          + ' /gangbeheer verwijderen opnieuw uit, of kies rollen_verwijderen: Nee.',
         failed: blocked,
       };
     }
@@ -1683,7 +1683,7 @@ async function deleteGang(guild, gang, opts) {
       ok: false,
       error: `Niet alles kon verwijderd worden: ${failed.join(', ')}. De gang blijft daarom in de`
         + ' opslag staan, dus er is niets kwijt: los de rechten of de rolvolgorde op en voer'
-        + ' /gang verwijderen opnieuw uit (of /gang herstel om de rest terug te zetten).'
+        + ' /gangbeheer verwijderen opnieuw uit (of /gangbeheer herstel om de rest terug te zetten).'
         + (notes.length ? ` ${notes.join(' ')}` : ''),
       failed,
     };
@@ -1710,7 +1710,7 @@ async function deleteGang(guild, gang, opts) {
     logger.warn(
       'gangService: de schrijfrechten van de aangenomen-/ontslagen-kanalen konden niet'
       + ` opgeruimd worden na het verwijderen van ${gang.name}`
-      + ` (${flowErr?.message || 'onbekende fout'}). Voer /gang herstel uit op een andere gang`
+      + ` (${flowErr?.message || 'onbekende fout'}). Voer /gangbeheer herstel uit op een andere gang`
       + ' om ze opnieuw te laten zetten.',
     );
   }
@@ -1877,7 +1877,7 @@ async function renameGang(guild, gang, opts) {
     ok: true,
     gang: result,
     error: failed.length
-      ? `Niet alles kon hernoemd worden: ${failed.join(', ')}. Voer /gang herstel uit.`
+      ? `Niet alles kon hernoemd worden: ${failed.join(', ')}. Voer /gangbeheer herstel uit.`
       : null,
   };
 }
@@ -2113,7 +2113,7 @@ async function repairGang(guild, gang, opts) {
     const weggevallen = missingGlobalRoleNotice(guild, guildConfig);
     if (weggevallen) changes.push(weggevallen);
 
-    // /gang herstel zet ook de twee registerkanalen recht: alleen bosses en underbosses
+    // /gangbeheer herstel zet ook de twee registerkanalen recht: alleen bosses en underbosses
     // (plus staff, de extrarollen en de bot) mogen daar posten. Zo hoeft de beheerder daar
     // geen apart commando voor te onthouden.
     const flow = await applyFlowChannelPermissions(guild);
@@ -2182,7 +2182,7 @@ async function syncSharedCategories(guild, gang) {
     return {
       ok: false,
       added: 0,
-      error: `De gangrol van ${gang.name || 'deze gang'} ontbreekt. Voer eerst /gang herstel uit.`,
+      error: `De gangrol van ${gang.name || 'deze gang'} ontbreekt. Voer eerst /gangbeheer herstel uit.`,
     };
   }
 
@@ -2265,7 +2265,7 @@ async function applyCategoryPermissions(guild, gang) {
     return {
       ok: false,
       updated: 0,
-      error: `De categorie van ${gang.name || 'deze gang'} bestaat niet meer. Voer /gang herstel uit.`,
+      error: `De categorie van ${gang.name || 'deze gang'} bestaat niet meer. Voer /gangbeheer herstel uit.`,
     };
   }
 
@@ -2299,7 +2299,7 @@ async function applyCategoryPermissions(guild, gang) {
 
   const problemen = [];
   if (missing.length) {
-    problemen.push(`Deze kanalen ontbreken en zijn overgeslagen: ${missing.join(', ')}. Voer /gang herstel uit.`);
+    problemen.push(`Deze kanalen ontbreken en zijn overgeslagen: ${missing.join(', ')}. Voer /gangbeheer herstel uit.`);
   }
   // Een geweigerde overwrite is geen detail: dan kan een kanaal openstaan of juist dicht
   // blijven voor wie er wel in hoort. Dat moet terug naar de gebruiker, niet alleen het log in.
@@ -2620,7 +2620,7 @@ async function removeFlowOverwrites(guild, roleIds, reason) {
  * @returns {Promise<{ok: boolean, updated: number, kanalen: string[], waarschuwingen: string[], ongekoppeld: string[], error: string|null}>}
  *   Wat er gezet is, in welke kanalen, en waar de beheerder naar moet kijken. `ongekoppeld`
  *   bevat de waarschuwingen die alleen zeggen dat een registerkanaal nog niet ingesteld is;
- *   dat is geen mankement, dus /gang herstel laat die regels weg.
+ *   dat is geen mankement, dus /gangbeheer herstel laat die regels weg.
  */
 async function applyFlowChannelPermissions(guild) {
   if (!guild || !guild.id) {
@@ -2676,7 +2676,7 @@ async function applyFlowChannelPermissions(guild) {
     waarschuwingen.push(
       `De bot mist zelf ${gemist.join(', ')}, dus die rechten zijn overgeslagen in de register- en`
       + ' leidingkanalen. Zet ze aan bij Serverinstellingen > Rollen > de rol van de bot en voer'
-      + ' /gang herstel opnieuw uit, anders staat het kanaal niet echt dicht.',
+      + ' /gangbeheer herstel opnieuw uit, anders staat het kanaal niet echt dicht.',
     );
   }
 
@@ -2742,7 +2742,7 @@ async function applyFlowChannelPermissions(guild) {
       waarschuwingen.push(
         `De schrijfrechten van ${kanaalNaam} konden niet gezet worden (${err.message}). Geef de bot`
         + ' in Kanaalinstellingen > Rechten de rechten "Kanaal bekijken" en "Rollen beheren" en'
-        + ' voer /gang herstel opnieuw uit.',
+        + ' voer /gangbeheer herstel opnieuw uit.',
       );
       continue;
     }
@@ -2758,7 +2758,7 @@ async function applyFlowChannelPermissions(guild) {
     ? `Het dichtzetten van ${nietDicht.join(' en ')} is niet gelukt: Discord weigerde`
       + ` ${mislukt} rechtenregel(s), dus daar kan op dit moment nog iedereen in typen.`
       + ` ${permissionHint(null, guild)} Geef de botrol ook in Kanaalinstellingen > Rechten van`
-      + ' dat kanaal "Kanaal bekijken" en "Rollen beheren", en voer /gang herstel opnieuw uit.'
+      + ' dat kanaal "Kanaal bekijken" en "Rollen beheren", en voer /gangbeheer herstel opnieuw uit.'
     : null;
 
   return {

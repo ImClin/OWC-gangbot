@@ -769,7 +769,7 @@ async function handleStaffrol(interaction) {
   if (aantalGangs > 0) {
     notities.push(
       `Bestaande gangcategorieën (${aantalGangs}) krijgen deze staffrol pas als je per gang `
-        + '`/gang herstel` uitvoert; dat zet alle permissies opnieuw.',
+        + '`/gangbeheer herstel` uitvoert; dat zet alle permissies opnieuw.',
     );
   }
   if (notities.length) addField(embed, 'Let op', notities);
@@ -844,7 +844,7 @@ async function handleMeldrol(interaction) {
  * extrarollen en de bot mogen er kijken en typen. Dat gebeurt met Discord-overwrites, dus
  * het blijft gelden als de bot offline is.
  *
- * Nieuwe gangs komen er vanzelf bij: bij `/gang aanmaken` worden de verse boss- en
+ * Nieuwe gangs komen er vanzelf bij: bij `/gangbeheer aanmaken` worden de verse boss- en
  * underbossrol aan alle register- en leidingkanalen toegevoegd.
  *
  * @param {import('discord.js').ChatInputCommandInteraction} interaction De interactie.
@@ -942,7 +942,7 @@ async function handleLeidingkanaal(interaction) {
     : `<#${channel.id}>`);
   addField(embed, 'Wie hier binnenkomt', LEADER_EXPLANATION);
   addField(embed, 'Nieuwe gangs', 'De boss- en underbossrol van een nieuwe gang worden hier '
-    + 'automatisch aan toegevoegd bij `/gang aanmaken`. Dit commando hoef je dus maar één '
+    + 'automatisch aan toegevoegd bij `/gangbeheer aanmaken`. Dit commando hoef je dus maar één '
     + 'keer per kanaal te draaien.');
   if (ontbreekt.length) {
     addField(embed, 'De bot mist rechten in dit kanaal', [
@@ -990,7 +990,7 @@ function gangVanRol(guildId, roleId) {
 function addRoleOrderResult(embed, resultaat) {
   if (!resultaat?.ok) {
     addField(embed, 'Bestaande gangrollen', resultaat?.error
-      || 'De rollenlijst kon nu niet bijgewerkt worden. Probeer `/gang herstel`.');
+      || 'De rollenlijst kon nu niet bijgewerkt worden. Probeer `/gangbeheer herstel`.');
     return;
   }
   addField(embed, 'Bestaande gangrollen', resultaat.verplaatst > 0
@@ -1062,7 +1062,7 @@ async function handleBodemrol(interaction) {
   addField(embed, 'Bodemrol', `<@&${picked.id}> (positie ${picked.position})`);
   addField(embed, 'Wat er nu gebeurt', [
     'Nieuwe gangrollen (gangrol, boss en underboss) komen altijd boven deze rol te staan.',
-    'Dat geldt ook na `/gang herstel`, hernoemen en verwijderen: de volgorde wordt elke keer '
+    'Dat geldt ook na `/gangbeheer herstel`, hernoemen en verwijderen: de volgorde wordt elke keer '
       + 'opnieuw gezet.',
     'De rol van de bot moet wel boven alle gangrollen blijven staan, anders mag Discord ze '
       + 'niet verplaatsen.',
@@ -1288,7 +1288,7 @@ async function handleGedeeldeCategorie(interaction) {
 /**
  * Subcommand `extrarollen`: beheert de rollen die in ELKE gangcategorie mogen kijken en
  * typen (OWC, wapendealers). Anders dan bij de staffrol passen we de wijziging meteen toe
- * op alle bestaande gangs, zodat er geen `/gang herstel` per gang nodig is.
+ * op alle bestaande gangs, zodat er geen `/gangbeheer herstel` per gang nodig is.
  *
  * @param {import('discord.js').ChatInputCommandInteraction} interaction De interactie.
  * @returns {Promise<void>} Niets.
@@ -1358,7 +1358,7 @@ async function handleExtraRollen(interaction) {
     return respond(interaction, saveFailedEmbed());
   }
 
-  // Meteen doorvoeren op alle bestaande gangs; anders zou de rol pas werken na /gang herstel.
+  // Meteen doorvoeren op alle bestaande gangs; anders zou de rol pas werken na /gangbeheer herstel.
   let gangs = [];
   try {
     gangs = store.listGangs(guild.id) || [];
@@ -1471,7 +1471,7 @@ async function handleLimieten(interaction) {
     ? embeds.warningEmbed('Standaardlimieten bijgewerkt, maar let op')
     : embeds.successEmbed('Standaardlimieten bijgewerkt');
   embed.setDescription('Deze waarden gelden alleen voor **nieuwe** gangs. **Bestaande gangs '
-    + 'houden hun eigen limieten** — pas die per gang aan met `/gang limiet`.');
+    + 'houden hun eigen limieten** — pas die per gang aan met `/gangbeheer limiet`.');
   addField(embed, 'Leden', `${config.defaultMemberLimit}`, true);
   addField(embed, 'Bosses', `${config.defaultBossLimit}`, true);
   addField(embed, 'Underbosses', `${config.defaultUnderbossLimit}`, true);
@@ -1638,7 +1638,7 @@ function buildPermissionLines(guild, gangs) {
   if (missing.length) {
     problems = true;
     lines.push(`⚠️ Ontbrekende gangrollen bij: ${missing.slice(0, 8).join(', ')}. `
-      + 'Voer `/gang herstel` uit om ze opnieuw aan te maken.');
+      + 'Voer `/gangbeheer herstel` uit om ze opnieuw aan te maken.');
   }
   return { lines, problems };
 }
@@ -1710,7 +1710,7 @@ function describeGlobalRoles(guild, config) {
  * @returns {string} Veldwaarde.
  */
 function describeGangs(gangs) {
-  if (!gangs.length) return 'Nog geen gangs. Maak er een aan met `/gang aanmaken`.';
+  if (!gangs.length) return 'Nog geen gangs. Maak er een aan met `/gangbeheer aanmaken`.';
   const namen = gangs.map((gang) => gang?.name || `#${gang?.id ?? '?'}`).join(', ');
   return `${gangs.length} geregistreerd: ${namen}`;
 }
