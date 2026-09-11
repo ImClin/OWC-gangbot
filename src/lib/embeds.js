@@ -72,7 +72,21 @@ const LIMIT = {
   fieldName: 256,
   fieldValue: 1024,
   fields: 25,
+  // Discord telt titel, beschrijving, alle veldnamen, alle veldwaarden en de footer bij
+  // elkaar op. Komt dat boven de 6000, dan weigert hij het HELE bericht met 50035 - het
+  // dashboard zou dan stilletjes stoppen met bijwerken.
+  total: 6000,
 };
+
+/**
+ * Hoeveel tekens de gangregels in een overzicht hoogstens mogen innemen.
+ *
+ * De rest van de 6000 is voor de titel, de beschrijving (aantallen en tijdstempel), de
+ * veldnamen en de vaste footer. Die zijn samen ruim binnen de 1200 die hier overblijft, dus
+ * dit is met opzet aan de veilige kant: liever een paar gangs onder "Niet getoond" dan een
+ * overzicht dat helemaal niet meer gepost wordt.
+ */
+const GANG_LINES_BUDGET = 4800;
 
 /** Hoeveel mentions maximaal per veld getoond worden voordat '+ x meer' verschijnt. */
 const MAX_MENTIONS_SHOWN = 20;
@@ -283,22 +297,32 @@ function pickCounts(source, gangId) {
  * @param {number} [maxChunks=5]
  * @returns {{ chunks: string[], remaining: number }}
  */
-function chunkLines(lines, maxLen = LIMIT.fieldValue, maxChunks = 5) {
+function chunkLines(lines, maxLen = LIMIT.fieldValue, maxChunks = 5, options = {}) {
+  const scheiding = typeof options.separator === 'string' ? options.separator : '\n';
+  const budget = Number.isFinite(options.budget) ? options.budget : Infinity;
+
   const safeLines = (Array.isArray(lines) ? lines : []).map((line) => cut(line, maxLen)).filter(Boolean);
   const chunks = [];
   let current = '';
   let currentCount = 0;
   let used = 0;
+  let totaal = 0;
+
   for (const line of safeLines) {
-    if (current && current.length + line.length + 1 > maxLen) {
+    // Past deze regel nog binnen het totale tekenbudget van de embed? Zo niet, dan stoppen
+    // we hier en meldt de aanroeper hoeveel gangs er niet getoond zijn.
+    if (totaal + line.length + scheiding.length > budget) break;
+
+    if (current && current.length + line.length + scheiding.length > maxLen) {
       chunks.push(current);
       used += currentCount;
       current = '';
       currentCount = 0;
       if (chunks.length >= maxChunks) break;
     }
-    current = current ? `${current}\n${line}` : line;
+    current = current ? `${current}${scheiding}${line}` : line;
     currentCount += 1;
+    totaal += line.length + scheiding.length;
   }
   if (current && chunks.length < maxChunks) {
     chunks.push(current);
@@ -591,7 +615,12 @@ function gangListEmbed(gangs, countsByGangId) {
 
   const sorted = list.slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
   const lines = sorted.map((gang) => gangLine(gang, pickCounts(countsByGangId, gang.id)));
-  const { chunks, remaining } = chunkLines(lines);
+  // Zelfde opmaak als het dashboard: witregel tussen de gangs, en binnen de tekenlimiet
+  // van de embed blijven.
+  const { chunks, remaining } = chunkLines(lines, LIMIT.fieldValue, 5, {
+    separator: '\n\n',
+    budget: GANG_LINES_BUDGET,
+  });
 
   chunks.forEach((chunk, index) => {
     addField(embed, index === 0 ? 'Overzicht' : `Overzicht (${index + 1})`, chunk);
@@ -764,7 +793,12 @@ function dashboardEmbed(gangs, countsByGangId, updatedAtUnix) {
 
   const sorted = sortByFullest(list, countsByGangId);
   const lines = sorted.map((gang) => gangLine(gang, pickCounts(countsByGangId, gang.id)));
-  const { chunks, remaining } = chunkLines(lines);
+  // Witregel tussen de gangs: elk blok is twee regels, en zonder tussenruimte lopen ze in
+  // elkaar over.
+  const { chunks, remaining } = chunkLines(lines, LIMIT.fieldValue, 5, {
+    separator: '\n\n',
+    budget: GANG_LINES_BUDGET,
+  });
 
   chunks.forEach((chunk, index) => {
     addField(embed, index === 0 ? 'Bezetting (volste eerst)' : `Bezetting (${index + 1})`, chunk);

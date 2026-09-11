@@ -1100,6 +1100,28 @@ Onder elk logbericht staat een knop **Terugdraaien**. Alleen staff kan erop klik
 bezetting. De bot werkt dat bericht elke **5 minuten** bij, en ook direct na elke aanname
 of elk ontslag. Wordt het bericht verwijderd, dan post de bot vanzelf een nieuw bericht.
 
+Per gang staat de naam boven de balk, met een lege regel ertussen:
+
+```
+⚔️ Rayuza
+██████████ 95% · 21/22 leden
+
+🟢 Grove Street Family
+█░░░░░░░░░ 9% · 2/22 leden
+```
+
+Zo beginnen alle balken op dezelfde kolom, ongeacht hoe lang een gangnaam is. `/gang lijst`
+gebruikt dezelfde opmaak.
+
+**Hoeveel gangs passen erin?** Een Discord-embed mag in totaal **6000 tekens** bevatten -
+titel, beschrijving, alle veldnamen, alle veldwaarden en de footer bij elkaar opgeteld - en
+een enkel veld hoogstens 1024. Komt een bericht daarboven, dan weigert Discord het **hele**
+bericht en zou het dashboard stilletjes stoppen met bijwerken.
+
+De bot bewaakt dat zelf: hij vult tot ongeveer 4800 tekens aan gangregels en zet de rest
+onder *"Niet getoond"*. In de praktijk passen er rond de **80 gangs** volledig in; daarboven
+verschijnt die regel. Het bericht blijft dus altijd geldig, hoeveel gangs je ook hebt.
+
 ---
 
 ## 13. Back-up en herstel
