@@ -308,7 +308,17 @@ function chunkLines(lines, maxLen = LIMIT.fieldValue, maxChunks = 5) {
 }
 
 /**
- * Eén overzichtsregel per gang: emoji, naam, capaciteitsbalk en bezetting.
+ * Eén overzichtsblok per gang: emoji en naam op de eerste regel, de capaciteitsbalk en de
+ * bezetting op de tweede.
+ *
+ * WAAROM OP TWEE REGELS: alles achter elkaar op één regel zette elke balk op een andere
+ * plek, want de ene gangnaam is nu eenmaal langer dan de andere. Met de naam erboven
+ * beginnen alle balken op dezelfde kolom en is in één oogopslag te zien welke gang het
+ * volst zit.
+ *
+ * De balk staat in `code`-opmaak: in de gewone letter van Discord is elk teken net een
+ * andere breedte, waardoor balken van gelijke lengte toch ongelijk ogen.
+ *
  * @param {GangRecord} gang
  * @param {Counts|null} counts
  * @returns {string}
@@ -317,10 +327,8 @@ function gangLine(gang, counts) {
   const emoji = gang && gang.emoji ? `${gang.emoji} ` : '';
   const name = cut(gang && gang.name ? gang.name : 'Onbekende gang', 40);
   const { bar, text } = capacityText(counts);
-  const parts = [`${emoji}**${name}**`];
-  if (bar) parts.push(bar);
-  parts.push(text);
-  return cut(parts.join(' — '), LIMIT.fieldValue);
+  const onder = bar ? `\`${bar}\` · ${text}` : text;
+  return cut(`${emoji}**${name}**\n${onder}`, LIMIT.fieldValue);
 }
 
 /**
