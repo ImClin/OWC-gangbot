@@ -1072,7 +1072,7 @@ async function createGangRoles(guild, name, reason, created) {
   for (const spec of roleSpecs(name)) {
     const role = await guild.roles.create({
       name: spec.name,
-      color: ROLE_COLORS[spec.kind] ?? GANG_ROLE_COLOR,
+      colors: { primaryColor: ROLE_COLORS[spec.kind] ?? GANG_ROLE_COLOR },
       hoist: false,
       mentionable: true,
       permissions: [],
@@ -1853,7 +1853,7 @@ async function repairGangRoles(guild, current, patch, changes, reason) {
 
     const role = await guild.roles.create({
       name: spec.name,
-      color: ROLE_COLORS[spec.kind] ?? GANG_ROLE_COLOR,
+      colors: { primaryColor: ROLE_COLORS[spec.kind] ?? GANG_ROLE_COLOR },
       hoist: false,
       mentionable: true,
       permissions: [],
