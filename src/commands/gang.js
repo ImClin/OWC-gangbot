@@ -232,6 +232,21 @@ function gangChoicesText(gangs) {
 }
 
 /**
+ * De gangs die deze gebruiker mag kiezen in de optie `gang`.
+ *
+ * Staff mag elke gang; ieder ander alleen de gang waar hij zelf in zit of leiding aan
+ * geeft. Zo kan een boss niet in de gangs van anderen rondkijken of rommelen, ook niet
+ * door de naam met de hand in te tikken in plaats van uit de suggesties te kiezen.
+ *
+ * @param {CommandContext} ctx De context.
+ * @returns {object[]} De toegestane GangRecords.
+ */
+function selectableGangs(ctx) {
+  if (ctx.staff) return ctx.gangs;
+  return ctx.gangs.filter((gang) => isMemberOf(ctx.member, gang) || isLeaderOf(ctx.member, gang));
+}
+
+/**
  * Zoekt de gang die bij de opgegeven `gang`-optie hoort.
  *
  * @param {CommandContext} ctx De context.
@@ -239,12 +254,13 @@ function gangChoicesText(gangs) {
  * @returns {{ok: true, gang: object|null}|{ok: false, error: string}} De gang of een melding.
  */
 function resolveGangOption(ctx, required = true) {
+  const toegestaan = selectableGangs(ctx);
   const raw = ctx.interaction.options.getString('gang');
   if (!raw || !raw.trim()) {
     if (!required) return { ok: true, gang: null };
     return {
       ok: false,
-      error: `Geef met de optie \`gang\` op welke gang je bedoelt. ${gangChoicesText(ctx.gangs)}`,
+      error: `Geef met de optie \`gang\` op welke gang je bedoelt. ${gangChoicesText(toegestaan)}`,
     };
   }
   const gang = store.findGang(ctx.guildId, raw);
@@ -252,7 +268,19 @@ function resolveGangOption(ctx, required = true) {
     return {
       ok: false,
       error: `Ik ken geen gang die "${truncate(raw, 60)}" heet. Kies er een uit de suggesties. `
-        + `${gangChoicesText(ctx.gangs)}`,
+        + `${gangChoicesText(toegestaan)}`,
+    };
+  }
+  // De suggesties tonen een niet-staffer alleen zijn eigen gang, maar de optie is vrije
+  // tekst: zonder deze controle kan iemand de naam van een andere gang gewoon intikken.
+  if (!toegestaan.some((eigen) => eigen.id === gang.id)) {
+    return {
+      ok: false,
+      // Eigen titel: "Gang niet gevonden" zou hier misleidend zijn - de gang bestaat wel,
+      // deze gebruiker mag er alleen niet bij.
+      titel: 'Niet jouw gang',
+      error: `Je kunt alleen je eigen gang kiezen. ${gangChoicesText(toegestaan)}`
+        + ' Gebruik `/gang lijst` voor een overzicht van alle gangs.',
     };
   }
   return { ok: true, gang };
@@ -744,7 +772,7 @@ async function handleVerwijderen(ctx) {
 
   const found = resolveGangOption(ctx, true);
   if (!found.ok) {
-    await sendError(interaction, 'Gang niet gevonden', found.error);
+    await sendError(interaction, found.titel || 'Gang niet gevonden', found.error);
     return;
   }
   const gang = found.gang;
@@ -1072,7 +1100,7 @@ async function handleInfo(ctx) {
   const { interaction, guild } = ctx;
   const found = resolveGangOption(ctx, false);
   if (!found.ok) {
-    await sendError(interaction, 'Gang niet gevonden', found.error);
+    await sendError(interaction, found.titel || 'Gang niet gevonden', found.error);
     return;
   }
 
@@ -1101,8 +1129,11 @@ async function handleInfo(ctx) {
     return;
   }
 
+  // Beheergegevens (kanaalnamen, wie de gang aanmaakte, ontbrekende rollen) zijn er voor wie
+  // de gang beheert. Een gewoon lid heeft er niets aan en krijgt de korte versie.
+  const detail = ctx.staff || isLeaderOf(ctx.member, gang);
   const counts = countGang(guild, gang);
-  await sendEmbed(interaction, gangInfoEmbed(gang, counts, guild), { ephemeral: false });
+  await sendEmbed(interaction, gangInfoEmbed(gang, counts, guild, { detail }), { ephemeral: false });
 }
 
 // ---------------------------------------------------------------------------
@@ -1135,7 +1166,7 @@ async function handleHernoemen(ctx) {
 
   const found = resolveGangOption(ctx, true);
   if (!found.ok) {
-    await sendError(interaction, 'Gang niet gevonden', found.error);
+    await sendError(interaction, found.titel || 'Gang niet gevonden', found.error);
     return;
   }
   if (!await deferEphemeral(interaction)) return;
@@ -1242,7 +1273,7 @@ async function handleLimiet(ctx) {
 
   const found = resolveGangOption(ctx, true);
   if (!found.ok) {
-    await sendError(interaction, 'Gang niet gevonden', found.error);
+    await sendError(interaction, found.titel || 'Gang niet gevonden', found.error);
     return;
   }
   const gang = found.gang;
@@ -1386,7 +1417,7 @@ async function handleAannemen(ctx) {
   const { interaction, guild } = ctx;
   const found = resolveActionGang(ctx, 'aannemen');
   if (!found.ok) {
-    await sendError(interaction, 'Welke gang?', found.error);
+    await sendError(interaction, found.titel || 'Welke gang?', found.error);
     return;
   }
   const gang = found.gang;
@@ -1429,7 +1460,7 @@ async function handleOntslaan(ctx) {
   const { interaction, guild } = ctx;
   const found = resolveActionGang(ctx, 'ontslaan');
   if (!found.ok) {
-    await sendError(interaction, 'Welke gang?', found.error);
+    await sendError(interaction, found.titel || 'Welke gang?', found.error);
     return;
   }
   const gang = found.gang;
@@ -1477,7 +1508,7 @@ async function handleHerstel(ctx) {
 
   const found = resolveGangOption(ctx, true);
   if (!found.ok) {
-    await sendError(interaction, 'Gang niet gevonden', found.error);
+    await sendError(interaction, found.titel || 'Gang niet gevonden', found.error);
     return;
   }
   if (!await deferEphemeral(interaction)) return;
@@ -1810,8 +1841,14 @@ async function autocomplete(interaction) {
     const focused = interaction.options.getFocused(true);
     if (focused && focused.name === 'gang' && interaction.guildId) {
       const needle = String(focused.value || '').trim().toLowerCase();
+      // Dezelfde grens als in resolveGangOption: wie geen staff is ziet alleen zijn eigen
+      // gang in de suggesties.
+      const staff = isStaff(interaction.member, store.getGuildConfig(interaction.guildId));
       choices = store.listGangs(interaction.guildId)
         .filter((gang) => gang && (gang.name || gang.slug))
+        .filter((gang) => staff
+          || isMemberOf(interaction.member, gang)
+          || isLeaderOf(interaction.member, gang))
         .filter((gang) => !needle
           || String(gang.name || '').toLowerCase().includes(needle)
           || String(gang.slug || '').toLowerCase().includes(needle))

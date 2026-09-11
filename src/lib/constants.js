@@ -31,10 +31,10 @@ const CHANNEL_BLUEPRINT = [
 const DEFAULT_MEMBER_LIMIT = 22;
 
 /** Standaard aantal bosses per gang. */
-const DEFAULT_BOSS_LIMIT = 2;
+const DEFAULT_BOSS_LIMIT = 1;
 
 /** Standaard aantal underbosses per gang. */
-const DEFAULT_UNDERBOSS_LIMIT = 2;
+const DEFAULT_UNDERBOSS_LIMIT = 3;
 
 /** Embedkleuren. */
 const COLORS = {

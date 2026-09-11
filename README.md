@@ -481,7 +481,7 @@ Welke rollen er nu in staan zie je met `/setup toon`.
 
 Dit is de waarde die **nieuwe** gangs krijgen. Bestaande gangs veranderen hier niet van;
 die pas je per stuk aan met `/gang limiet`. Je kunt hier ook `bosses` en `underbosses`
-meegeven (standaard allebei 2).
+meegeven (standaard 1 boss en 3 underbosses).
 
 ### Stap 6 (optioneel) - Dashboard
 
@@ -754,8 +754,8 @@ boss en een underboss zijn gewoon leden en tellen dus ook mee binnen de 22.
 
 | Limiet | Standaard | Wat wordt geteld |
 |---|---|---|
-| **Bosslimiet** | **2** | Iedereen met de rol `<Gang> Boss`. |
-| **Underbosslimiet** | **2** | Iedereen met de rol `<Gang> Underboss`. |
+| **Bosslimiet** | **1** | Iedereen met de rol `<Gang> Boss`. |
+| **Underbosslimiet** | **3** | Iedereen met de rol `<Gang> Underboss`. |
 
 Probeer je er een derde bij te zetten, dan weigert de bot dat:
 

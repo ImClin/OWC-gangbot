@@ -500,11 +500,17 @@ function gangCreatedEmbed(gang, counts) {
  * @param {GangRecord} gang De gang.
  * @param {Counts|null} counts Resultaat van countGang().
  * @param {import('discord.js').Guild|null} [guild] Server, om de categorie te controleren.
+ * @param {{detail?: boolean}} [options] `detail: false` laat de beheergegevens weg: kanaalnamen,
+ *   wie de gang aanmaakte en de herstelmeldingen. Standaard aan.
  * @returns {EmbedBuilder}
  */
-function gangInfoEmbed(gang, counts, guild) {
+function gangInfoEmbed(gang, counts, guild, options = {}) {
   const g = gang || {};
   const c = counts || null;
+  // `detail` staat aan voor staff en de leiding van de gang. Zonder detail blijven de
+  // beheergegevens weg: kanaalnamen, wie de gang aanmaakte en de herstelmeldingen zeggen
+  // een gewoon lid niets en nodigen alleen maar uit tot vragen aan staff.
+  const detail = options?.detail !== false;
   const embed = baseEmbed(capacityColorSafe(c))
     .setTitle(cut(`${g.emoji ? `${g.emoji} ` : ''}${g.name || 'Onbekende gang'}`, LIMIT.title));
 
@@ -519,8 +525,10 @@ function gangInfoEmbed(gang, counts, guild) {
     g.categoryId
       ? `Categorie: ${category ? `<#${g.categoryId}>` : '*niet gevonden — gebruik `/gang herstel`*'}`
       : null,
-    g.slug ? `Kanaalnamen: \`${g.slug}\`${g.abbreviation ? ' *(afkorting)*' : ''}` : null,
-    g.createdAt ? `Aangemaakt ${relTime(g.createdAt)}${g.createdBy ? ` door <@${g.createdBy}>` : ''}` : null,
+    detail && g.slug ? `Kanaalnamen: \`${g.slug}\`${g.abbreviation ? ' *(afkorting)*' : ''}` : null,
+    detail && g.createdAt
+      ? `Aangemaakt ${relTime(g.createdAt)}${g.createdBy ? ` door <@${g.createdBy}>` : ''}`
+      : null,
   ]);
 
   addRosterFields(embed, c);
@@ -534,7 +542,7 @@ function gangInfoEmbed(gang, counts, guild) {
     `Leden: **${memberLimit}** · Bosses: **${bossLimit}** · Underbosses: **${underbossLimit}**`,
   );
 
-  const missing = c && Array.isArray(c.missingRoles) ? c.missingRoles.filter(Boolean) : [];
+  const missing = detail && c && Array.isArray(c.missingRoles) ? c.missingRoles.filter(Boolean) : [];
   if (missing.length) {
     addField(
       embed,
@@ -547,8 +555,11 @@ function gangInfoEmbed(gang, counts, guild) {
     addField(
       embed,
       'Status',
-      `Deze gang zit vol: ${Number(c.members) || 0}/${memberLimit} leden. Ontsla eerst iemand met `
-        + '`/gang ontslaan`, of verhoog de limiet met `/gang limiet leden:<aantal>`.',
+      `Deze gang zit vol: ${Number(c.members) || 0}/${memberLimit} leden.`
+        + (detail
+          ? ' Ontsla eerst iemand met `/gang ontslaan`, of verhoog de limiet met'
+            + ' `/gang limiet leden:<aantal>`.'
+          : ' Er kan pas weer iemand bij als de leiding ruimte maakt.'),
     );
   }
   return embed;
