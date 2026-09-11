@@ -16,7 +16,7 @@ const {
 
 const logger = require('../lib/logger');
 const store = require('../store');
-const { actionLogEmbed } = require('../lib/embeds');
+const { actionLogEmbed, registerEmbed } = require('../lib/embeds');
 const { ACTION, BUTTON, COLORS } = require('../lib/constants');
 
 /**
@@ -397,8 +397,23 @@ async function announceAction(guild, action, counts) {
     return null;
   }
 
+  // De gang erbij zoeken om hem als rol te kunnen noemen; lukt dat niet, dan valt
+  // registerEmbed terug op de naam die in de actie zelf staat.
+  let gang = null;
   try {
-    const message = await channel.send({ embeds: [actionLogEmbed(action, counts || null)] });
+    gang = store.findGang(guild.id, action.gangId) || null;
+  } catch (err) {
+    logger.debug(`Gang van actie #${action.id} niet gevonden: ${reason(err)}`);
+    gang = null;
+  }
+
+  try {
+    const message = await channel.send({
+      embeds: [registerEmbed(action, gang)],
+      // Mentions in een embed pingen sowieso niet, maar dit maakt het hard: een register
+      // dat de halve gang wakker belt bij elke aanname wil niemand.
+      allowedMentions: { parse: [] },
+    });
     logger.debug(`Actie #${action.id} openbaar gepost in #${channel.name || channel.id}.`);
     return message;
   } catch (err) {

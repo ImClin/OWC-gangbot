@@ -660,6 +660,40 @@ function actionLogEmbed(action, counts) {
 }
 
 /**
+ * Embed voor het OPENBARE register (#aangenomen en #ontslagen): alleen de gang, om wie het
+ * gaat en wie het deed.
+ *
+ * Bewust korter dan actionLogEmbed. Het actienummer en de bezetting horen bij het
+ * staff-logboek - daar hangt de terugdraaiknop aan dat nummer - en zeggen de gang zelf
+ * niets. De Discord-gebruikersnaam laten we ook weg: de mention toont al wie het is, en de
+ * naam eronder maakte er een dubbele regel van.
+ *
+ * De gang wordt als rolmention getoond als de rol bekend is. Dat pingt niemand: mentions
+ * binnen een embed zijn altijd stil.
+ *
+ * @param {ActionRecord} action De opgeslagen actie.
+ * @param {GangRecord|null} [gang] De gang, om de rol te kunnen noemen.
+ * @returns {EmbedBuilder}
+ */
+function registerEmbed(action, gang) {
+  const a = action || {};
+  const meta = ACTION_META[a.type] || { title: 'ℹ️ Actie', color: 'neutral' };
+  const embed = baseEmbed(color(meta.color)).setTitle(cut(meta.title, LIMIT.title));
+
+  addField(embed, 'Gang', gang && gang.roleId
+    ? `<@&${gang.roleId}>`
+    : cut(a.gangName || 'onbekend', 200), true);
+  addField(embed, 'Lid', a.targetId
+    ? `<@${a.targetId}>`
+    : cut(a.targetTag || 'onbekend', 200), true);
+  addField(embed, 'Door', a.actorId
+    ? `<@${a.actorId}>`
+    : cut(a.actorTag || 'systeem', 200), true);
+  if (a.reason) addField(embed, 'Reden', cut(a.reason, 900));
+  return embed;
+}
+
+/**
  * Compacte actiehistorie met relatieve tijdstempels; teruggedraaide acties staan
  * doorgestreept.
  * @param {GangRecord|null} gang De gang, of null voor een gecombineerd overzicht.
@@ -754,6 +788,7 @@ module.exports = {
   gangInfoEmbed,
   gangListEmbed,
   actionLogEmbed,
+  registerEmbed,
   historyEmbed,
   dashboardEmbed,
 };
