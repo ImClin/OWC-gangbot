@@ -1316,6 +1316,30 @@ async function handleLimiet(ctx) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Plaatst een embed openbaar in het kanaal waar het commando gebruikt werd.
+ *
+ * WAAROM channel.send en geen followUp: na een ephemeral deferReply kan de eerste followUp
+ * de ephemeral-stand van dat antwoord overnemen, en dan ziet alsnog niemand het bericht.
+ *
+ * @param {import('discord.js').ChatInputCommandInteraction} interaction De interactie.
+ * @param {import('discord.js').EmbedBuilder} embed De embed.
+ * @returns {Promise<boolean>} true als het bericht geplaatst is.
+ */
+async function postInChannel(interaction, embed) {
+  const channel = interaction.channel
+    || interaction.guild?.channels?.cache?.get(interaction.channelId)
+    || null;
+  if (!channel || typeof channel.send !== 'function') return false;
+  try {
+    await channel.send({ embeds: [embed], allowedMentions: { parse: [] } });
+    return true;
+  } catch (err) {
+    logger.warn(`/gang: openbaar bericht plaatsen mislukt: ${err?.message || err}`);
+    return false;
+  }
+}
+
+/**
  * Gedeelde afhandeling voor promoveren en degraderen. Beide commandos werken hetzelfde:
  * gang bepalen, rechten checken, en de service een trede laten opschuiven.
  *
@@ -1330,6 +1354,18 @@ async function handleTrede(ctx, richting) {
   const { interaction, guild } = ctx;
   const omhoog = richting === 'promoveer';
   const werkwoord = omhoog ? 'promoveren' : 'degraderen';
+
+  // Promoveren hoort in #aangenomen en degraderen in #ontslagen, zodat elke rangwijziging
+  // openbaar in het register staat. Is dat kanaal niet gekoppeld, dan werkt het overal.
+  const registerId = omhoog ? ctx.config?.hireChannelId : ctx.config?.fireChannelId;
+  if (registerId && interaction.channelId !== registerId) {
+    await sendError(
+      interaction,
+      'Verkeerd kanaal',
+      `\`/gang ${richting}\` werkt alleen in <#${registerId}>. Voer het commando daar opnieuw uit.`,
+    );
+    return;
+  }
 
   // Eerst het lid: de gang volgt uit wie diegene is, niet uit een losse optie.
   const target = await fetchOptionMember(ctx, 'lid');
@@ -1370,14 +1406,32 @@ async function handleTrede(ctx, richting) {
     return;
   }
 
-  const wijzigingen = Array.isArray(result.changes) && result.changes.length
-    ? `\n\n${result.changes.map((regel) => `• ${regel}`).join('\n')}`
-    : '';
-  await sendEmbed(interaction, successEmbed(
-    omhoog ? 'Gepromoveerd' : 'Gedegradeerd',
+  const kop = omhoog ? '⬆️ Gepromoveerd' : '⬇️ Gedegradeerd';
+  const gangNaam = found.gang.roleId ? `<@&${found.gang.roleId}>` : `**${found.gang.name}**`;
+  const openbaar = await postInChannel(interaction, successEmbed(
+    kop,
     `<@${target.member.id}> gaat van **${result.vanLabel}** naar **${result.naarLabel}**`
-      + ` bij ${found.gang.name}.${wijzigingen}`,
+      + ` bij ${gangNaam}.\nDoor <@${interaction.user.id}>`,
   ));
+
+  if (openbaar) {
+    // Het bericht staat openbaar in het register; het lege ephemeral antwoord mag weg.
+    try {
+      await interaction.deleteReply();
+    } catch (err) {
+      logger.debug(`/gang: ephemeral antwoord opruimen mislukt: ${err?.message || err}`);
+    }
+  } else {
+    const wijzigingen = Array.isArray(result.changes) && result.changes.length
+      ? `\n\n${result.changes.map((regel) => `• ${regel}`).join('\n')}`
+      : '';
+    await sendEmbed(interaction, successEmbed(
+      kop,
+      `<@${target.member.id}> gaat van **${result.vanLabel}** naar **${result.naarLabel}**`
+        + ` bij ${found.gang.name}.${wijzigingen}`
+        + '\n\n⚠️ Het openbare bericht kon niet in dit kanaal geplaatst worden.',
+    ));
+  }
   logNoticeAsync(guild, actionLogEmbed(result.action, result.counts));
   refreshDashboard(guild);
 }

@@ -536,8 +536,8 @@ dan is de bot klaar voor gebruik.
 |---|---|---|---|
 | `/gang lijst` | (geen) | Iedereen | Overzicht van alle gangs met per gang een bezettingsbalk. Dit antwoord is zichtbaar voor iedereen in het kanaal. |
 | `/gang info` | `gang` (optioneel; leeg = je eigen gang) | Leden en leiding van die gang, en staff | Toont boss, underboss, de overige leden en de limieten. Je kunt alleen je eigen gang bekijken, tenzij je staff bent. Staff en de leiding zien er ook de beheergegevens bij (kanaalnaam, wie de gang aanmaakte, ontbrekende rollen); een gewoon lid niet. |
-| `/gang promoveer` | `lid`* | **Boss** of staff | Zet iemand **een trede hoger**: lid → underboss → boss. De gang volgt uit de gangrol van het gekozen lid, dus die hoef je niet op te geven. De bot kijkt zelf waar iemand staat. Alleen staff mag de laatste stap naar boss zetten. |
-| `/gang degradeer` | `lid`* | **Boss** of staff | Zet iemand **een trede lager**: boss → underboss → lid. Ook hier volgt de gang uit het lid. Aan een zittende boss kan alleen staff iets veranderen. Onder "lid" zit niets meer; moet iemand helemaal uit de gang, gebruik dan `/gang ontslaan`. |
+| `/gang promoveer` | `lid`* | **Boss** of staff | **Werkt alleen in `#aangenomen`**; het resultaat komt daar als openbaar bericht te staan. Zet iemand **een trede hoger**: lid → underboss → boss. De gang volgt uit de gangrol van het gekozen lid, dus die hoef je niet op te geven. De bot kijkt zelf waar iemand staat. Alleen staff mag de laatste stap naar boss zetten. |
+| `/gang degradeer` | `lid`* | **Boss** of staff | **Werkt alleen in `#ontslagen`**; het resultaat komt daar als openbaar bericht te staan. Zet iemand **een trede lager**: boss → underboss → lid. Ook hier volgt de gang uit het lid. Aan een zittende boss kan alleen staff iets veranderen. Onder "lid" zit niets meer; moet iemand helemaal uit de gang, gebruik dan `/gang ontslaan`. |
 | `/gang aannemen` | `lid`*, `gang` (leeg = je eigen gang) | Leiding of staff | Hetzelfde als een bericht in `#aangenomen`, maar dan als commando. Handig als het aannamekanaal even niet beschikbaar is. De aanname wordt ook **openbaar in `#aangenomen` gepost**. |
 | `/gang ontslaan` | `lid`*, `gang` (leeg = je eigen gang), `reden` (max 400 tekens) | Leiding of staff | Hetzelfde als een bericht in `#ontslagen`. Alle gangrollen die de persoon van deze gang heeft, gaan er in een keer af. Het ontslag wordt ook **openbaar in `#ontslagen` gepost**. |
 | `/gang historie` | `gang` (optioneel), `lid` (optioneel), `aantal` (1-25, standaard 10) | Staff, en leiding voor de eigen gang | Toont de laatste acties (aannames, ontslagen, handmatige rolwijzigingen, vertrek uit de server) met tijdstip. |
@@ -894,6 +894,15 @@ Bij `/gangbeheer aanmaken naam:Rayuza emoji:⚔️` zet de bot dit neer.
 | `📞・rayuza-oortje` | Spraak | Het spraakkanaal van de gang |
 
 De emoji staat vast per kanaalsoort en wordt van de naam gescheiden door het teken `・`.
+
+### Welkomstbericht
+
+Direct na het aanmaken post de bot een welkomstbericht in `📢・mededeling`, met een ping naar
+de gangrol. Daarin staat de richtlijn om in het oortje te zitten zolang je in de stad bent,
+en een korte uitleg voor boss en underboss over aannemen, ontslaan, promoveren en degraderen.
+Draai `/setup kanalen` vóór je gangs aanmaakt: dan linkt het bericht meteen naar
+`#aangenomen` en `#ontslagen`. Lukt het posten niet, dan staat de gang er gewoon en meldt de
+bot dat alleen in de terminal.
 
 ### Een afkorting voor lange gangnamen
 

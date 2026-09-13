@@ -1494,6 +1494,91 @@ async function cleanupLegacyRole(guild, gang, reason) {
 }
 
 // ---------------------------------------------------------------------------
+// Welkomstbericht in de mededelingen
+// ---------------------------------------------------------------------------
+
+/** Discord weigert een gewoon bericht boven de 2000 tekens. */
+const MAX_MESSAGE_LENGTH = 2000;
+
+/**
+ * Het welkomstbericht voor een nieuwe gang: de richtlijn over het oortje en een korte
+ * uitleg voor de leiding over aannemen, ontslaan, promoveren en degraderen.
+ *
+ * Een kanaal dat (nog) niet gekoppeld is met /setup kanalen wordt niet genoemd; dan staat
+ * alleen het slash-commando erbij, zodat er nooit een dode kanaallink in het bericht staat.
+ *
+ * @param {object} gang Het GangRecord.
+ * @param {{hireChannelId?: string|null, fireChannelId?: string|null}} guildConfig Serverconfiguratie.
+ * @returns {string} De berichttekst, binnen de 2000 tekens.
+ */
+function buildWelcomeMessage(gang, guildConfig) {
+  const aanhef = gang?.roleId ? `<@&${gang.roleId}>` : `${gang?.emoji || ''} ${gang?.name || 'gang'}`.trim();
+  const oortje = gang?.channels?.oortje ? `<#${gang.channels.oortje}>` : 'het oortje van jullie gang';
+  const hire = guildConfig?.hireChannelId;
+  const fire = guildConfig?.fireChannelId;
+
+  const aannemen = hire
+    ? `zet een @-mention van de persoon in <#${hire}>, bijvoorbeeld \`@Jan\` (meerdere mensen tegelijk mag ook). Of gebruik \`/gang aannemen lid:@Jan\`.`
+    : 'gebruik `/gang aannemen lid:@Jan`.';
+  const ontslaan = fire
+    ? `zet een @-mention in <#${fire}>, eventueel met een reden: \`@Jan | reden: inactief\`. Of gebruik \`/gang ontslaan lid:@Jan reden:inactief\`.`
+    : 'gebruik `/gang ontslaan lid:@Jan reden:inactief`.';
+
+  const regels = [
+    `Beste ${aanhef},`,
+    '',
+    'Van harte welkom in de onderwereld van Europa!',
+    '',
+    'Wij hebben één richtlijn die we graag terugzien hier in de onderwereld-Discord:',
+    '',
+    `**Gebruik ${oortje}.** Hier zit je altijd in zolang je in de stad bent. Het geeft ons een`
+      + ' goed beeld van hoeveel activiteit jullie hebben en of er niet aan metagamen wordt gedaan.',
+    '',
+    '**Voor de boss en underboss: zo beheer je je gang**',
+    `• **Aannemen:** ${aannemen}`,
+    `• **Ontslaan:** ${ontslaan}`,
+    `• **Promoveren:** \`/gang promoveer lid:@Jan\`${hire ? ` in <#${hire}>` : ''} maakt van een lid een underboss (alleen de boss).`,
+    `• **Degraderen:** \`/gang degradeer lid:@Jan\`${fire ? ` in <#${fire}>` : ''} zet een underboss terug naar lid (alleen de boss).`,
+    '• **Overzicht:** `/gang info` toont je leden en de bezetting, `/gang historie` de laatste'
+      + ' aannames en ontslagen.',
+    `De gang heeft plek voor **${Number(gang?.memberLimit) || 0}** leden, boss en underboss inbegrepen.`,
+    '',
+    'Voor de rest: have fun! We komen jullie snel weer tegemoet.',
+    '',
+    'Veel succes in de stad!',
+  ];
+  return truncate(regels.join('\n'), MAX_MESSAGE_LENGTH);
+}
+
+/**
+ * Post het welkomstbericht in het mededelingenkanaal van een verse gang en pingt daarbij
+ * alleen de gangrol. Gooit nooit: mislukt het, dan staat de gang er gewoon en komt er een
+ * waarschuwing in de terminal.
+ *
+ * @param {import('discord.js').Guild} guild De server.
+ * @param {object} gang Het GangRecord.
+ * @param {object} guildConfig Serverconfiguratie.
+ * @returns {Promise<boolean>} true als het bericht geplaatst is.
+ */
+async function postWelcomeMessage(guild, gang, guildConfig) {
+  const channel = resolveChannel(guild, gang?.channels?.mededeling);
+  if (!channel || typeof channel.send !== 'function') {
+    logger.warn(`gangService: geen mededelingenkanaal gevonden voor ${gang?.name}; welkomstbericht overgeslagen.`);
+    return false;
+  }
+  try {
+    await channel.send({
+      content: buildWelcomeMessage(gang, guildConfig),
+      allowedMentions: { parse: [], roles: gang?.roleId ? [gang.roleId] : [] },
+    });
+    return true;
+  } catch (err) {
+    logger.warn(`gangService: welkomstbericht voor ${gang?.name} niet geplaatst (${err?.message || err}).`);
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Publieke API
 // ---------------------------------------------------------------------------
 
@@ -1577,6 +1662,9 @@ async function createGang(guild, opts) {
         + ' voer /gangbeheer herstel uit om dit alsnog recht te zetten.',
       );
     }
+
+    // Net als hierboven: een welkomstbericht dat niet aankomt mag de aanmaak niet terugdraaien.
+    await postWelcomeMessage(guild, gang, guildConfig);
 
     logger.info(`Gang ${gang.name} (#${gang.id}) aangemaakt door ${actorId || 'onbekend'}.`);
     return { ok: true, gang, warning };
