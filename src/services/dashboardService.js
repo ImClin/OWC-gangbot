@@ -11,6 +11,7 @@ const { PermissionFlagsBits } = require('discord.js');
 const logger = require('../lib/logger');
 const store = require('../store');
 const { countGang } = require('../lib/capacity');
+const { ensureMemberCache } = require('../lib/memberCache');
 const { dashboardEmbed } = require('../lib/embeds');
 
 /** Standaardinterval van de lus: elke 5 minuten. */
@@ -217,6 +218,15 @@ async function runUpdate(guild) {
 /**
  * Werkt het dashboard van elke server in de cache bij, met per server een try/catch
  * zodat één kapotte server de rest niet blokkeert.
+ *
+ * Deze ronde is meteen het vangnet voor de ledencache. countGang() telt via
+ * `guild.members.cache`, en die kan na een herverbinding half leeg zijn (zie
+ * lib/memberCache.js). events/guildAvailable.js vult hem dan opnieuw, maar lukt dat
+ * niet - trage verbinding, time-out - dan zou de bot met een te lage telling blijven
+ * draaien tot de eerstvolgende herstart. Door hier elke ronde te controleren komt het
+ * uiterlijk een interval later vanzelf goed, ook op servers zonder dashboardkanaal.
+ * Bij een complete cache kost de controle niets.
+ *
  * @param {import('discord.js').Client} client De ingelogde client.
  * @returns {Promise<void>}
  */
@@ -224,6 +234,7 @@ async function updateAllGuilds(client) {
   const guilds = client.guilds && client.guilds.cache ? Array.from(client.guilds.cache.values()) : [];
   for (const guild of guilds) {
     try {
+      await ensureMemberCache(guild);
       const result = await updateDashboard(guild);
       if (!result.ok && result.error) {
         logger.debug(`Dashboard ${describeGuild(guild)}: ${result.error}`);

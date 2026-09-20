@@ -4,6 +4,12 @@
 // de juiste rechten en rolpositie heeft, de vergrendeling van de registerkanalen
 // (#aangenomen en #ontslagen) opnieuw neerzetten, en de dashboard-lus starten.
 //
+// LET OP: dit bestand draait met `once: true`, dus precies een keer per proces. Het is
+// daarmee NIET de bewaker van de ledencache - na een herverbinding gooit discord.js die
+// cache leeg zonder hier langs te komen. Dat vangen events/guildAvailable.js en
+// lib/memberCache.js op. Zet hier dus geen logica neer die na een herverbinding opnieuw
+// moet draaien.
+//
 // Alles hier is defensief: een server die niet meewerkt (ontbrekende intent, geen
 // rechten) mag het opstarten van de rest nooit blokkeren.
 
@@ -12,8 +18,12 @@ const { Events } = require('discord.js');
 const logger = require('../lib/logger');
 const store = require('../store');
 const { missingBotPermissions, botCanManageRole } = require('../lib/permissions');
+const { ensureMemberCache } = require('../lib/memberCache');
 const gangService = require('../services/gangService');
 const { startDashboardLoop } = require('../services/dashboardService');
+
+/** Aantal pogingen om de leden op te halen; een time-out bij het opstarten is niet fataal. */
+const MEMBER_FETCH_ATTEMPTS = 3;
 
 /**
  * Korte omschrijving van een server voor logregels.
@@ -28,26 +38,31 @@ function describeGuild(guild) {
 
 /**
  * Haalt alle leden van een server op zodat `role.members` betrouwbaar telt.
- * Mislukt dit, dan staat vrijwel altijd de privileged intent 'Server Members' uit.
+ * Mislukt dit, dan staat vrijwel altijd de privileged intent 'Server Members' uit, of
+ * is de verbinding met Discord te traag.
+ *
+ * Het echte ophalen zit in lib/memberCache.js; die module bewaakt de cache ook na het
+ * opstarten. Dat is nodig omdat dit event op `once: true` staat: na een herverbinding
+ * gooit discord.js de ledencache leeg en komt hij hier niet meer langs. Zie
+ * events/guildAvailable.js.
  *
  * @param {import('discord.js').Guild} guild De server.
  * @returns {Promise<number>} Aantal leden in de cache (0 als het ophalen mislukte).
  */
 async function warmMemberCache(guild) {
-  try {
-    const members = await guild.members.fetch();
-    const size = members?.size ?? guild.members?.cache?.size ?? 0;
-    logger.debug(`Ledencache van ${describeGuild(guild)} gevuld: ${size} leden.`);
-    return size;
-  } catch (err) {
+  const result = await ensureMemberCache(guild, {
+    attempts: MEMBER_FETCH_ATTEMPTS,
+    ignoreCooldown: true,
+  });
+  if (!result.ok) {
     logger.warn(
-      `Kon de leden van ${describeGuild(guild)} niet ophalen. Zet in de Discord Developer Portal `
-        + 'de "Server Members Intent" aan (Bot > Privileged Gateway Intents); zonder die intent '
-        + 'kloppen de ledentellingen en limieten niet.',
-      err,
+      `De ledencache van ${describeGuild(guild)} is niet compleet (${result.size} van `
+        + `${result.expected ?? '?'} leden). Zet in de Discord Developer Portal de `
+        + '"Server Members Intent" aan (Bot > Privileged Gateway Intents); zonder die intent '
+        + 'kloppen de ledentellingen en limieten niet. De bot probeert het daarna vanzelf opnieuw.',
     );
-    return 0;
   }
+  return result.size;
 }
 
 /**

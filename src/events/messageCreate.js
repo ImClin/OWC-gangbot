@@ -28,6 +28,7 @@ const membershipService = require('../services/membershipService');
 const logService = require('../services/logService');
 const dashboardService = require('../services/dashboardService');
 const { countGang, formatCapacity } = require('../lib/capacity');
+const { ensureMemberCache } = require('../lib/memberCache');
 const {
   extractUserIds,
   extractRoleIds,
@@ -669,6 +670,11 @@ module.exports = {
       if (!context) return;
 
       const guild = message.guild;
+      // Pas hier, nadat vaststaat dat dit bericht in #aangenomen of #ontslagen staat:
+      // de ledencache moet compleet zijn voordat er geteld wordt, anders staat er een
+      // te laag aantal in de bevestiging en laat de limiet te veel mensen door. Bij een
+      // complete cache (het normale geval) kost dit niets. Zie lib/memberCache.js.
+      await ensureMemberCache(guild);
       const { config, isHire } = context;
       const content = typeof message.content === 'string' ? message.content : '';
       // Het 'opdrachtdeel' is alles vóór de reden. Mentions ná '|' of 'reden:' zijn

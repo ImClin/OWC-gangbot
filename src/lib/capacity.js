@@ -1,7 +1,14 @@
 // src/lib/capacity.js
 // Telt de bezetting van een gang en zet die om in tekst/kleur voor embeds.
-// Let op: role.members werkt alleen met een warme member-cache; ready.js doet
-// daarom `await guild.members.fetch()`. Ontbreekt de cache, dan tellen we 0.
+//
+// LET OP: `role.members` is niets meer dan een filter over `guild.members.cache`. Staat
+// daar maar een deel van de server in, dan telt dit bestand te weinig leden ZONDER dat
+// er iets misgaat - je ziet het alleen aan een te laag getal ("9/22 leden" bij een gang
+// met 19 man). Die cache raakt onder andere leeg bij elke herverbinding met Discord.
+//
+// Het compleet houden van die cache gebeurt daarom niet hier maar in lib/memberCache.js;
+// roep `ensureMemberCache(guild)` aan voordat je telt. Ontbreekt de rol zelf, dan komt
+// de rolsoort in `missingRoles` en tellen we 0.
 
 const {
   COLORS,

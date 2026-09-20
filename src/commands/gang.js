@@ -21,6 +21,7 @@ const logger = require('../lib/logger');
 const { BUTTON, CHANNEL_BLUEPRINT } = require('../lib/constants');
 const { truncate } = require('../lib/parse');
 const { countGang, formatCapacity } = require('../lib/capacity');
+const { ensureMemberCache } = require('../lib/memberCache');
 const {
   isStaff,
   isLeaderOf,
@@ -48,6 +49,13 @@ const dashboardService = require('../services/dashboardService');
 
 /** Hoelang de bevestigingsknoppen van /gangbeheer verwijderen bruikbaar blijven. */
 const CONFIRM_TIMEOUT_MS = 60 * 1000;
+
+/**
+ * Hoelang een commando hooguit op een onvolledige ledencache wacht. Ruim binnen de drie
+ * seconden die Discord geeft voor het eerste antwoord, want niet elk subcommando stelt
+ * dat antwoord uit met deferReply.
+ */
+const MEMBER_CACHE_BUDGET_MS = 1200;
 
 /** Discord staat maximaal 25 autocomplete-suggesties toe. */
 const MAX_AUTOCOMPLETE_CHOICES = 25;
@@ -1973,6 +1981,14 @@ async function runSubcommand(interaction, handlers, commandNaam) {
     );
     return;
   }
+
+  // De ledencache kan na een herverbinding half leeg zijn; dan telt countGang() te
+  // weinig leden en staat er bijvoorbeeld "9/22 leden" bij een gang met 19 man. Normaal
+  // is dit gratis (de cache is compleet en er gebeurt niets). Is hij dat niet, dan
+  // wachten we hooguit MEMBER_CACHE_BUDGET_MS: `/gang lijst` en `/gang info` antwoorden
+  // direct, zonder deferReply, en Discord verwacht binnen drie seconden iets terug.
+  // Het ophalen loopt daarna op de achtergrond door, dus de volgende aanroep klopt wel.
+  await ensureMemberCache(interaction.guild, { budgetMs: MEMBER_CACHE_BUDGET_MS });
 
   try {
     const ctx = await buildContext(interaction);

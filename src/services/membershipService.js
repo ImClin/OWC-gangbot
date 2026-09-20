@@ -16,6 +16,7 @@ const store = require('../store');
 const logger = require('../lib/logger');
 const { ACTION, ROLE_KIND, ROLE_SUFFIX } = require('../lib/constants');
 const { countGang, formatCapacity } = require('../lib/capacity');
+const { ensureMemberCache } = require('../lib/memberCache');
 const { truncate } = require('../lib/parse');
 const {
   isStaff,
@@ -281,6 +282,53 @@ function checkBasics(guild, gang, targetMember) {
 }
 
 /**
+ * Hoe vaak er hooguit per server gewaarschuwd wordt over een onvolledige ledencache.
+ * Zonder deze rem staat dezelfde melding bij elk ontslag in een reeks opnieuw in het log.
+ */
+const CACHE_WARN_INTERVAL_MS = 5 * 60 * 1000;
+
+/**
+ * Tijdstip (ms) van de laatste cachewaarschuwing per server-id.
+ * @type {Map<string, number>}
+ */
+const lastCacheWarning = new Map();
+
+/**
+ * Zorgt dat er op een COMPLETE ledencache geteld wordt voordat er iets gemuteerd wordt.
+ *
+ * WAAROM DIT NODIG IS: `countGang` telt via `role.members`, en dat is een filter over
+ * `guild.members.cache`. Na een herverbinding gooit discord.js die cache leeg (zie
+ * lib/memberCache.js), en dan telt een volle gang ineens de helft van zijn leden. Elke
+ * limietcontrole hieronder zou dan te ruim zijn en mensen boven de limiet toelaten.
+ *
+ * Is de cache al compleet - het normale geval - dan kost dit niets. Lukt het aanvullen
+ * niet, dan gaat de actie wel door (anders ligt het hele gangbeheer plat zodra Discord
+ * even traag is), maar komt er een waarschuwing in het logboek.
+ *
+ * @param {import('discord.js').Guild} guild De server.
+ * @param {object|null} gang Het GangRecord, alleen voor de logregel.
+ * @returns {Promise<void>}
+ */
+async function ensureCountableMembers(guild, gang) {
+  const result = await ensureMemberCache(guild);
+  if (result.ok) {
+    lastCacheWarning.delete(guild?.id);
+    return;
+  }
+
+  const now = Date.now();
+  const laatste = lastCacheWarning.get(guild?.id) || 0;
+  if (now - laatste < CACHE_WARN_INTERVAL_MS) return;
+  lastCacheWarning.set(guild?.id, now);
+
+  logger.warn(
+    `membershipService: de ledencache van ${guild?.name || guild?.id} is niet compleet `
+      + `(${result.size} van ${result.expected ?? '?'} leden). De bezetting van `
+      + `${gang?.name || 'de gang'} kan te laag uitvallen en de ledenlimiet dus te ruim.`,
+  );
+}
+
+/**
  * Normaliseert een door de gebruiker opgegeven reden.
  *
  * @param {*} value Ruwe reden.
@@ -517,6 +565,7 @@ function checkHire(guild, gang, targetMember, actorMember, ctx) {
 async function hire(guild, gang, targetMember, actorMember, opts = {}) {
   const invalid = checkBasics(guild, gang, targetMember);
   if (invalid) return invalid;
+  await ensureCountableMembers(guild, gang);
 
   const options = opts && typeof opts === 'object' ? opts : {};
   const config = readConfig(guild);
@@ -634,6 +683,7 @@ function checkFire(guild, gang, targetMember, actorMember, ctx) {
 async function fire(guild, gang, targetMember, actorMember, opts = {}) {
   const invalid = checkBasics(guild, gang, targetMember);
   if (invalid) return invalid;
+  await ensureCountableMembers(guild, gang);
 
   const options = opts && typeof opts === 'object' ? opts : {};
   const config = readConfig(guild);
@@ -881,6 +931,7 @@ function checkLeadershipLimits(guild, gang, plan, normalized, config) {
 async function setLeadership(guild, gang, targetMember, actorMember, kind, opts = {}) {
   const invalid = checkBasics(guild, gang, targetMember);
   if (invalid) return invalid;
+  await ensureCountableMembers(guild, gang);
 
   const options = opts && typeof opts === 'object' ? opts : {};
   const reason = normalizeReason(options.reason);
@@ -1289,6 +1340,7 @@ async function revertAction(guild, action, actorMember) {
   if (!gang) {
     return fail('GANG_MISSING', `De gang ${action.gangName || 'van deze actie'} bestaat niet meer.`);
   }
+  await ensureCountableMembers(guild, gang);
   const config = readConfig(guild);
   const staff = isStaff(actorMember, config);
   if (!staff) {
