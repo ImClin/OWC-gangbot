@@ -818,6 +818,12 @@ function checkLeadershipActor(gang, targetMember, actorMember, kind, config) {
 }
 
 /**
+ * Hoeveel plekken staff boven de boss- of underbosslimiet mag vullen. Bij een limiet van
+ * 2 kan staff dus nog een derde boss of underboss aanstellen; de gangleiding niet.
+ */
+const STAFF_LEADERSHIP_EXTRA = 1;
+
+/**
  * Controleert de inhoudelijke voorwaarden voor een leidingswijziging: verandert er wel
  * iets, zit de persoon niet al bij een andere gang, en is er nog een boss- of
  * underbossplek vrij?
@@ -826,9 +832,11 @@ function checkLeadershipActor(gang, targetMember, actorMember, kind, config) {
  * @param {object} gang Het GangRecord.
  * @param {import('discord.js').GuildMember} targetMember Het doellid.
  * @param {'boss'|'underboss'|'none'} kind De gewenste situatie.
+ * @param {boolean} [staff] Is de uitvoerder staff? Staff mag STAFF_LEADERSHIP_EXTRA
+ *   plek(ken) boven de leidingslimiet vullen.
  * @returns {Failure|null} De eerste overtreding, of null.
  */
-function checkLeadership(guild, gang, targetMember, kind) {
+function checkLeadership(guild, gang, targetMember, kind, staff = false) {
   const label = describeMember(targetMember);
   if (targetMember.user?.bot) {
     return fail('TARGET_IS_BOT', `${label} is een bot; een bot kan geen leiding van een gang zijn.`);
@@ -858,13 +866,18 @@ function checkLeadership(guild, gang, targetMember, kind) {
     const bezet = (kind === 'boss' ? counts.bossIds : counts.underbossIds)
       .filter((id) => id !== targetMember.id).length;
     const limiet = kind === 'boss' ? counts.bossLimit : counts.underbossLimit;
-    if (bezet >= limiet) {
+    const toegestaan = staff ? limiet + STAFF_LEADERSHIP_EXTRA : limiet;
+    if (bezet >= toegestaan) {
       const meervoud = kind === 'boss' ? 'bosses' : 'underbosses';
       const optie = kind === 'boss' ? 'bosses' : 'underbosses';
+      const staffTip = staff
+        ? ` Staff mag er maximaal ${STAFF_LEADERSHIP_EXTRA} boven de limiet aanstellen.`
+        : ` Staff kan er nog ${STAFF_LEADERSHIP_EXTRA} boven de limiet aanstellen.`;
       return fail(
         'LEADERSHIP_FULL',
         `${gang.name} heeft al ${bezet}/${limiet} ${meervoud}. Degradeer er eerst één met `
-          + `\`/gang degradeer\`, of verhoog de limiet met \`/gangbeheer limiet ${optie}:<aantal>\`.`,
+          + `\`/gang degradeer\`, of verhoog de limiet met \`/gangbeheer limiet ${optie}:<aantal>\`.`
+          + staffTip,
         { counts },
       );
     }
@@ -944,7 +957,7 @@ async function setLeadership(guild, gang, targetMember, actorMember, kind, opts 
   const notAllowed = checkLeadershipActor(gang, targetMember, actorMember, normalized, config);
   if (notAllowed) return notAllowed;
 
-  const problem = checkLeadership(guild, gang, targetMember, normalized);
+  const problem = checkLeadership(guild, gang, targetMember, normalized, isStaff(actorMember, config));
   if (problem) return problem;
 
   const plan = planLeadership(gang, targetMember, normalized);
