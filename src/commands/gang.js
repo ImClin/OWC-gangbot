@@ -542,7 +542,7 @@ function warnIfFull(guild, gang, counts) {
 // ---------------------------------------------------------------------------
 
 /**
- * Maakt een nieuwe gang aan: drie rollen, een categorie en zes kanalen (gangService).
+ * Maakt een nieuwe gang aan: drie rollen, een categorie en de gangkanalen (gangService).
  *
  * @param {CommandContext} ctx De context.
  * @returns {Promise<void>}

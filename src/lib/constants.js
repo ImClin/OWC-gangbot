@@ -13,9 +13,13 @@ const CHANNEL_NAME_SEPARATOR = '・';
 const MAX_CHANNEL_NAME_LENGTH = 100;
 
 /**
- * De zes kanalen van elke gang, in aanmaak- en weergavevolgorde.
+ * De kanalen van elke gang, in aanmaak- en weergavevolgorde.
  * Kanaalnaam = `${emoji}${CHANNEL_NAME_SEPARATOR}${base}` waarbij
  * base = useSlug ? slug + suffix : fixedName.
+ *
+ * Een kanaal toevoegen? Zet het hier in de lijst en draai `/gangbeheer herstel` zonder gang:
+ * dat maakt het ontbrekende kanaal bij elke bestaande gang aan. Discord zet een nieuw
+ * tekstkanaal onderaan de tekstkanalen van de categorie, dus direct onder het vorige.
  * @type {ReadonlyArray<{kind: string, emoji: string, suffix?: string, fixedName?: string, useSlug: boolean, type: 'text'|'voice'}>}
  */
 const CHANNEL_BLUEPRINT = [
@@ -24,6 +28,7 @@ const CHANNEL_BLUEPRINT = [
   { kind: 'chat', emoji: '💭', suffix: '-chat', useSlug: true, type: 'text' },
   { kind: 'media', emoji: '📷', fixedName: 'media', useSlug: false, type: 'text' },
   { kind: 'dark', emoji: '👤', fixedName: 'dark-chat', useSlug: false, type: 'text' },
+  { kind: 'wapenverkoop', emoji: '🔫', fixedName: 'wapenverkoop', useSlug: false, type: 'text' },
   { kind: 'oortje', emoji: '📞', suffix: '-oortje', useSlug: true, type: 'voice' },
 ];
 

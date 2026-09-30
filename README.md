@@ -52,7 +52,7 @@ Elk van deze drie heeft verderop een eigen hoofdstuk met klikstappen:
 ## 1. Wat de bot doet
 
 - **Gangs aanmaken met een commando.** `/gangbeheer aanmaken` zet in een keer een categorie,
-  zes kanalen en drie rollen neer, met alle permissies goed ingesteld. De drie rollen komen
+  zeven kanalen en drie rollen neer, met alle permissies goed ingesteld. De drie rollen komen
   meteen als een blokje bij elkaar in de rollenlijst te staan.
 - **Aannemen en ontslaan zonder staff.** De boss of underboss van een gang plaatst een
   bericht met een @-mention in `#aangenomen` of `#ontslagen`; de bot deelt de rollen uit
@@ -241,7 +241,7 @@ Rechten die de bot voor **zichzelf** gebruikt:
 | Recht (Nederlands) | Engels | Waarvoor de bot het nodig heeft |
 |---|---|---|
 | Rollen beheren | Manage Roles | De drie gangrollen aanmaken, uitdelen, afnemen en **op volgorde zetten** |
-| Kanalen beheren | Manage Channels | De categorie en de zes kanalen aanmaken, hernoemen, verwijderen en hun rechten zetten |
+| Kanalen beheren | Manage Channels | De categorie en de gangkanalen aanmaken, hernoemen, verwijderen en hun rechten zetten |
 | Kanalen bekijken | View Channels | Zijn eigen gangkanalen en de registerkanalen zien; zonder dit kan hij er niets in zetten |
 | Auditlogboek bekijken | View Audit Log | Zien wie een gangrol handmatig heeft toegevoegd of weggehaald |
 | Berichten versturen | Send Messages | Antwoorden in `#aangenomen` en `#ontslagen`, en posten in het logboek |
@@ -882,7 +882,7 @@ Bij `/gangbeheer aanmaken naam:Rayuza emoji:⚔️` zet de bot dit neer.
 
 `⚔️ | Rayuza` - de emoji, een spatie, een liggend streepje en de naam.
 
-### 6 kanalen (in deze volgorde)
+### 7 kanalen (in deze volgorde)
 
 | Kanaal | Type | Waarvoor |
 |---|---|---|
@@ -891,6 +891,7 @@ Bij `/gangbeheer aanmaken naam:Rayuza emoji:⚔️` zet de bot dit neer.
 | `💭・rayuza-chat` | Tekst | De gewone gangchat |
 | `📷・media` | Tekst | Foto's en video's |
 | `👤・dark-chat` | Tekst | Gevoelige zaken; **alleen boss en underboss zien dit kanaal** |
+| `🔫・wapenverkoop` | Tekst | Wapenverkoop binnen de gang |
 | `📞・rayuza-oortje` | Spraak | Het spraakkanaal van de gang |
 
 De emoji staat vast per kanaalsoort en wordt van de naam gescheiden door het teken `・`.
@@ -942,7 +943,7 @@ Twee dingen om te weten:
 In `/gang info` staat onder de bezetting welke kanaalnaam een gang gebruikt en of dat een
 afkorting is - handig als je je afvraagt waarom een kanaal `gsf-chat` heet.
 De gangnaam in de kanaalnamen is de "slug": kleine letters, spaties worden streepjes
-(`Los Zetas` wordt `los-zetas`). De kanalen `📷・media` en `👤・dark-chat` heten in elke
+(`Los Zetas` wordt `los-zetas`). De kanalen `📷・media`, `👤・dark-chat` en `🔫・wapenverkoop` heten in elke
 gang hetzelfde; ze staan alleen in een andere categorie.
 
 ### 3 rollen
@@ -1003,6 +1004,7 @@ het hieronder afwijkt, is dat expliciet ingesteld.
 | `💭・rayuza-chat` | Geen toegang | Lezen en schrijven | Lezen, schrijven, beheren | Lezen en schrijven |
 | `📷・media` | Geen toegang | Lezen, schrijven, bestanden | Lezen, schrijven, beheren | Lezen en schrijven |
 | `👤・dark-chat` | Geen toegang | **Geen toegang** | Lezen en schrijven | Lezen en schrijven |
+| `🔫・wapenverkoop` | Geen toegang | Lezen, schrijven, bestanden | Lezen, schrijven, beheren | Lezen en schrijven |
 | `📞・rayuza-oortje` (spraak) | Geen toegang | Deelnemen en **meeluisteren**, niet praten | Deelnemen en meeluisteren, **niet praten**, wel muten en slepen | Deelnemen, meeluisteren en **praten** |
 
 En buiten de gangcategorie, in de twee registers van de server:

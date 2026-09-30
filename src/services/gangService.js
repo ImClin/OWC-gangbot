@@ -38,7 +38,7 @@ const MAX_NAME_LENGTH = 40;
 const MAX_GUILD_CHANNELS = 500;
 const MAX_GUILD_ROLES = 250;
 
-/** Wat een gang aan de server toevoegt: 6 kanalen + 1 categorie, en 3 rollen. */
+/** Wat een gang aan de server toevoegt: de blueprint-kanalen + 1 categorie, en 3 rollen. */
 const CHANNELS_PER_GANG = CHANNEL_BLUEPRINT.length + 1;
 const ROLES_PER_GANG = 3;
 
@@ -786,7 +786,7 @@ async function applyOverwrites(channel, entries, reason) {
  * overwrite van een oude staffrol, of een rol die iemand met de hand aan het bosskanaal
  * heeft toegevoegd, blijft dan voor altijd staan terwijl de bot meldt "alles was al in orde".
  *
- * Wat hier wel weg mag: rol-overwrites op de categorie en de zes kanalen van deze gang die
+ * Wat hier wel weg mag: rol-overwrites op de categorie en de kanalen van deze gang die
  * niet in `entries` staan. Elke verwijdering wordt gemeld in `removed`, zodat staff ziet
  * wat er weg is en het desnoods bewust terug kan zetten.
  *
@@ -1153,7 +1153,7 @@ async function createGangCategory(guild, draft, guildConfig, reason, created) {
 }
 
 /**
- * Maakt de zes kanalen in blueprint-volgorde aan, met een korte pauze ertussen tegen de
+ * Maakt de kanalen in blueprint-volgorde aan, met een korte pauze ertussen tegen de
  * rate limit. Kanalen zonder eigen uitzonderingen krijgen geen expliciete overwrites mee
  * en erven daardoor netjes van de categorie.
  *
@@ -1676,7 +1676,7 @@ async function createGang(guild, opts) {
 }
 
 /**
- * Verwijdert een gang: eerst de zes kanalen, dan de categorie en optioneel de drie rollen.
+ * Verwijdert een gang: eerst de kanalen, dan de categorie en optioneel de drie rollen.
  *
  * Het GangRecord verdwijnt ALLEEN uit de opslag als alles daadwerkelijk opgeruimd is. Lukte
  * er iets niet, dan blijft het record staan en komt er `ok: false` terug met wat er handmatig
@@ -2074,7 +2074,7 @@ async function repairGangCategory(guild, current, guildConfig, patch, changes, r
 }
 
 /**
- * Zorgt dat de zes kanalen bestaan en onder de juiste categorie hangen.
+ * Zorgt dat de kanalen bestaan en onder de juiste categorie hangen.
  *
  * @param {import('discord.js').Guild} guild De server.
  * @param {object} current Werkkopie van het GangRecord.
@@ -2339,7 +2339,7 @@ async function syncSharedCategories(guild, gang) {
 }
 
 /**
- * (Her)zet alle overwrites van een gang: eerst de categorie, daarna elk van de zes kanalen
+ * (Her)zet alle overwrites van een gang: eerst de categorie, daarna elk van de kanalen
  * met hun eigen uitzonderingen. Idempotent: bestaande overwrites worden bijgewerkt en wat
  * al klopt wordt overgeslagen, dus deze functie mag zo vaak aangeroepen worden als nodig.
  *

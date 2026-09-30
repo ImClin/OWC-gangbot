@@ -209,7 +209,7 @@ function mentionToId(raw) {
 // Constanten (defensief: val terug op de spec-waarden als constants.js afwijkt)
 // ---------------------------------------------------------------------------
 
-const FALLBACK_CHANNEL_KINDS = ['mededeling', 'boss', 'chat', 'media', 'dark', 'oortje'];
+const FALLBACK_CHANNEL_KINDS = ['mededeling', 'boss', 'chat', 'media', 'dark', 'wapenverkoop', 'oortje'];
 
 const CHANNEL_KINDS = Array.isArray(constants.CHANNEL_BLUEPRINT) && constants.CHANNEL_BLUEPRINT.length
   ? constants.CHANNEL_BLUEPRINT
