@@ -749,6 +749,17 @@ Rayuza @Jan
 - **Een bot mentionen.** Bots kunnen geen gangrollen krijgen.
 - **Iemand aannemen die al in een andere gang zit.** De bot weigert dat en vertelt bij
   welke gang die persoon zit. Laat hem daar eerst ontslaan worden.
+- **Iemand aannemen die net weg is bij een gang.** Er geldt een wachttijd, bij elke gang
+  (ook de oude):
+
+  | Vertrek | Wachttijd |
+  |---|---|
+  | Ontslagen via `#ontslagen` of `/gang ontslaan` | 24 uur |
+  | De server verlaten terwijl je in een gang zat | 3 dagen |
+
+  De bot vertelt tot wanneer die persoon moet wachten. Staff heeft geen last van de
+  wachttijd en kan iemand dus eerder aannemen. Een ontslag dat staff terugdraait, telt
+  niet mee.
 
 ---
 
@@ -1099,6 +1110,7 @@ Onder elk logbericht staat een knop **Terugdraaien**. Alleen staff kan erop klik
 - Een **aanname** terugdraaien: de gangrol wordt weer weggehaald.
 - Een **ontslag** terugdraaien: de gangrol komt terug. **Let op:** een boss- of
   underbossrol komt *niet* automatisch terug - geef die opnieuw met `/gang promoveer`.
+  De wachttijd van 24 uur na dat ontslag vervalt daarmee ook.
 - Zat de gang inmiddels vol, dan meldt de bot dat de gang boven de limiet uitkomt.
 - Oude regels van vóór deze versie (aannames als meeloper) blijven gewoon leesbaar in het
   logboek en in `/gang historie`, en zijn ook nog terug te draaien.
@@ -1269,6 +1281,7 @@ zegt de bot dat ook.
 | **"Alleen de boss of underboss van een gang mag hier aannemen", terwijl die persoon wel de boss is.** | Die persoon heeft de rol `Rayuza Boss` niet, maar bijvoorbeeld alleen `Rayuza`. | Promoveer die persoon met `/gang promoveer lid:@Jan` tot hij boss is (staff mag de laatste stap zetten). Dat zet meteen ook de gangrol goed. |
 | **"Rayuza zit vol (22/22 leden)" terwijl je er visueel minder ziet.** | Boss en underboss tellen mee binnen de 22, en de bot telt iedereen met de gangrol - ook mensen die je vergeten was. | Bekijk `/gang info gang:Rayuza` voor de exacte lijst. Ontsla iemand in `#ontslagen`, of verhoog de grens met `/gangbeheer limiet gang:Rayuza leden:25`. |
 | **Iemand aannemen lukt niet: "zit al bij Los Zetas".** | Een persoon kan maar bij een gang tegelijk horen; de bot weigert dubbele gangrollen. | Laat de leiding van Los Zetas die persoon eerst ontslaan (`#ontslagen` of `/gang ontslaan`) en neem hem daarna aan. Staff kan het ook zelf doen. |
+| **Iemand aannemen lukt niet: "mag pas over 20 uur weer aangenomen worden".** | Die persoon is minder dan 24 uur geleden ontslagen, of heeft minder dan 3 dagen geleden de server verlaten terwijl die in een gang zat. Die wachttijd geldt bij elke gang. | Wacht tot de genoemde tijd voorbij is. Moet het echt eerder, laat staff die persoon dan aannemen; voor staff geldt de wachttijd niet. Was het ontslag een vergissing, laat staff het dan terugdraaien in het logboek. |
 | **De bot zet een ✅, maar de samenvatting is verdwenen.** | Ging er niets goed, dan ruimt de bot de samenvatting na 60 seconden op. Hint- en foutmeldingen verdwijnen al na 15 tot 30 seconden. | Bij (deels) succes blijft de samenvatting staan. Wil je het terugzien: `/gang historie gang:Rayuza`, of kijk in het logboekkanaal. |
 | **Er komt niets in het logboekkanaal.** | Het logkanaal is niet ingesteld, of de bot mag er niet posten. De bot faalt hier bewust stil, zodat de aanname zelf wel doorgaat. | `/setup kanalen logboek:#gang-logboek` en geef de bot in dat kanaal *Kanaal bekijken*, *Berichten versturen* en *Links insluiten*. Controleer met `/setup toon`. |
 | **Handmatige rolwijzigingen worden niet gemeld ("wie heeft Jan de rol Rayuza gegeven?").** | De bot mist het recht **Auditlogboek bekijken** (View Audit Log). | Serverinstellingen &rarr; Rollen &rarr; botrol &rarr; zet *Auditlogboek bekijken* aan. |

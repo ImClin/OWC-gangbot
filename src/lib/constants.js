@@ -65,6 +65,22 @@ const ACTION = {
   LEADERSHIP: 'leadership',
 };
 
+/** Een uur in milliseconden. */
+const HOUR_MS = 60 * 60 * 1000;
+
+/**
+ * Wachttijd voordat iemand na een vertrek uit een gang weer aangenomen mag worden, per
+ * actietype van dat vertrek. Geldt voor elke gang, ook de oude; staff mag eromheen.
+ * Een teruggedraaid ontslag telt niet mee.
+ */
+const REHIRE_COOLDOWN_MS = {
+  // Ontslagen via #ontslagen of /gang ontslaan.
+  [ACTION.FIRE]: 24 * HOUR_MS,
+  // De server verlaten terwijl je in een gang zat; anders ontloop je de wachttijd door
+  // even weg te gaan en opnieuw te joinen.
+  [ACTION.LEFT_SERVER]: 3 * 24 * HOUR_MS,
+};
+
 /** De drie rolsoorten binnen een gang. */
 const ROLE_KIND = {
   GANG: 'gang',
@@ -494,6 +510,7 @@ deepFreeze(CHANNEL_PERMS);
 deepFreeze(FLOW_PERMS);
 deepFreeze(COLORS);
 deepFreeze(ACTION);
+deepFreeze(REHIRE_COOLDOWN_MS);
 deepFreeze(ROLE_HOIST);
 deepFreeze(ROLE_KIND);
 deepFreeze(BUTTON);
@@ -509,6 +526,7 @@ module.exports = {
   DEFAULT_UNDERBOSS_LIMIT,
   COLORS,
   ACTION,
+  REHIRE_COOLDOWN_MS,
   ROLE_KIND,
   BUTTON,
   CATEGORY_PERMS,

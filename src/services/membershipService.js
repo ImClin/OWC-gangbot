@@ -14,7 +14,9 @@
 
 const store = require('../store');
 const logger = require('../lib/logger');
-const { ACTION, ROLE_KIND, ROLE_SUFFIX } = require('../lib/constants');
+const {
+  ACTION, REHIRE_COOLDOWN_MS, ROLE_KIND, ROLE_SUFFIX,
+} = require('../lib/constants');
 const { countGang, formatCapacity } = require('../lib/capacity');
 const { ensureMemberCache } = require('../lib/memberCache');
 const { truncate } = require('../lib/parse');
@@ -502,6 +504,78 @@ function checkLimits(gang, counts, config, staff) {
 }
 
 // ---------------------------------------------------------------------------
+// Wachttijd na een vertrek
+// ---------------------------------------------------------------------------
+
+/**
+ * Zoekt het vertrek uit een gang waardoor iemand nu nog niet aangenomen mag worden: een
+ * ontslag of het verlaten van de server (zie REHIRE_COOLDOWN_MS). Een teruggedraaid
+ * ontslag telt niet; die persoon is nooit echt weggegaan. Lopen er meerdere wachttijden,
+ * dan telt de wachttijd die het laatst afloopt.
+ *
+ * Lukt het lezen van de historie niet, dan houden we niemand tegen: anders ligt het
+ * aannemen plat zodra de opslag hapert.
+ *
+ * @param {string} guildId Discord server-id.
+ * @param {string} userId Gebruikers-id van het doellid.
+ * @returns {{action: object, until: number}|null} Het vertrek en het tijdstip (ms) waarop
+ *   de wachttijd afloopt, of null als er geen wachttijd loopt.
+ */
+function findRehireCooldown(guildId, userId) {
+  let actions = [];
+  try {
+    actions = store.listActions(guildId, { targetId: userId }) || [];
+  } catch (err) {
+    logger.warn('membershipService: historie lezen voor de wachttijd mislukt.', err);
+    return null;
+  }
+
+  const now = Date.now();
+  let found = null;
+  for (const action of actions) {
+    const duur = Object.hasOwn(REHIRE_COOLDOWN_MS, action?.type) ? REHIRE_COOLDOWN_MS[action.type] : 0;
+    if (!duur || action.reverted === true) continue;
+    const until = Number(action.createdAt) + duur;
+    if (until > now && (!found || until > found.until)) found = { action, until };
+  }
+  return found;
+}
+
+/**
+ * Een wachttijd in woorden: hele dagen vanaf twee dagen, anders in uren.
+ *
+ * @param {number} ms Duur in milliseconden.
+ * @returns {string} Bijvoorbeeld '24 uur' of '3 dagen'.
+ */
+function describeWait(ms) {
+  const uren = Math.round(ms / (60 * 60 * 1000));
+  if (uren >= 48 && uren % 24 === 0) return `${uren / 24} dagen`;
+  return `${uren} uur`;
+}
+
+/**
+ * Bouwt de foutmelding voor iemand die nog in zijn wachttijd zit. Het tijdstip staat er
+ * als Discord-tijdstempel in, zodat iedereen 'over 5 uur' in zijn eigen tijdzone ziet.
+ *
+ * @param {import('discord.js').GuildMember} targetMember Het doellid.
+ * @param {{action: object, until: number}} cooldown Uitkomst van findRehireCooldown.
+ * @returns {Failure} Een COOLDOWN-fout.
+ */
+function cooldownFailure(targetMember, cooldown) {
+  const { action, until } = cooldown;
+  const oudeGang = action.gangName || 'een gang';
+  const vertrek = action.type === ACTION.LEFT_SERVER
+    ? `heeft de server verlaten als lid van ${oudeGang}`
+    : `is ontslagen bij ${oudeGang}`;
+  return fail(
+    'COOLDOWN',
+    `${describeMember(targetMember)} ${vertrek} en mag pas <t:${Math.ceil(until / 1000)}:R> `
+      + `weer aangenomen worden (wachttijd ${describeWait(REHIRE_COOLDOWN_MS[action.type])}).`,
+    { until },
+  );
+}
+
+// ---------------------------------------------------------------------------
 // hire
 // ---------------------------------------------------------------------------
 
@@ -549,8 +623,9 @@ function checkHire(guild, gang, targetMember, actorMember, ctx) {
  * gangrol en telt daarmee mee voor de ledenlimiet.
  *
  * Foutcodes: `INVALID_INPUT`, `NOT_LEADER`, `TARGET_IS_BOT`, `MISSING_ROLE`,
- * `ALREADY_MEMBER`, `OTHER_GANG`, `LIMIT_REACHED`, `HIERARCHY`, `DISCORD_ERROR`.
- * Bij `LIMIT_REACHED` komt `counts` mee in het foutresultaat.
+ * `ALREADY_MEMBER`, `OTHER_GANG`, `COOLDOWN`, `LIMIT_REACHED`, `HIERARCHY`, `DISCORD_ERROR`.
+ * Bij `LIMIT_REACHED` komt `counts` mee in het foutresultaat, bij `COOLDOWN` het
+ * tijdstip `until` (ms) waarop de wachttijd afloopt.
  *
  * @param {import('discord.js').Guild} guild De server.
  * @param {object} gang Het GangRecord van de gang.
@@ -576,6 +651,10 @@ async function hire(guild, gang, targetMember, actorMember, opts = {}) {
 
   const problem = checkHire(guild, gang, targetMember, actorMember, { staff });
   if (problem) return problem;
+
+  // Wachttijd na een ontslag of vertrek van de server. Staff mag er bewust omheen.
+  const cooldown = findRehireCooldown(guild.id, targetMember.id);
+  if (cooldown && !staff) return cooldownFailure(targetMember, cooldown);
 
   const before = countGang(guild, gang);
   if (!bypassLimit) {
@@ -603,6 +682,7 @@ async function hire(guild, gang, targetMember, actorMember, opts = {}) {
     // Extra velden voor revertAction en de historie (blijven bewaard in de store).
     addedRoleIds: toAdd,
     bypassedLimit: bypassLimit && before.memberFull === true,
+    bypassedCooldown: Boolean(cooldown),
   });
 
   // countGang leest de ledencache die mutateRoles zojuist bijgewerkt heeft; dit is dus
