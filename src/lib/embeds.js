@@ -830,14 +830,21 @@ function dashboardEmbed(gangs, countsByGangId, updatedAtUnix) {
  * gezet. Een gang zonder geldige status valt onder de standaard (onofficieel), zodat hij
  * nooit uit het overzicht verdwijnt.
  *
- * Net als het dashboard blijft dit binnen de 6000 tekens van een embed: alle niveaus delen
- * hetzelfde budget, en wat niet past komt onder "Niet getoond".
+ * Alles staat in de beschrijving, met per niveau een kopje en een witregel ertussen: losse
+ * velden zetten de niveaus te dicht op elkaar. Een gang staat er als roltag (gekleurd, en in
+ * een embed pingt die niemand); is de rol weg, dan als vetgedrukte naam.
+ *
+ * De beschrijving mag 4096 tekens zijn. Wat daar niet in past komt onder "niet getoond", zodat
+ * het bericht altijd geldig blijft.
  * @param {GangRecord[]} gangs Alle gangs.
+ * @param {import('discord.js').Guild} [guild] De server, om te zien of de gangrol nog bestaat.
  * @returns {EmbedBuilder}
  */
-function statusOverviewEmbed(gangs) {
+function statusOverviewEmbed(gangs, guild) {
   const list = Array.isArray(gangs) ? gangs.filter(Boolean) : [];
-  const embed = baseEmbed(color('info')).setTitle('🏷️ Gangstatus');
+  const embed = baseEmbed(color('info'))
+    .setTitle('🏷️ Gangstatus')
+    .setFooter({ text: `${FOOTER_TEXT} · status toegekend door OWC` });
 
   if (!list.length) {
     embed.setDescription('Er zijn nog geen gangs aangemaakt.');
@@ -851,32 +858,42 @@ function statusOverviewEmbed(gangs) {
     perLevel.get(key).push(gang);
   }
 
-  let budget = GANG_LINES_BUDGET;
+  const roles = guild && guild.roles && guild.roles.cache ? guild.roles.cache : null;
+  const gangTag = (gang) => {
+    const emoji = gang.emoji ? `${gang.emoji} ` : '';
+    const tag = gang.roleId && roles && roles.has(gang.roleId)
+      ? `<@&${gang.roleId}>`
+      : `**${cut(gang.name || 'Onbekende gang', 40)}**`;
+    return `${emoji}${tag}`;
+  };
+
+  const sections = [
+    levels.map((level) => `${level.emoji} **${perLevel.get(level.key).length}** ${level.label.toLowerCase()}`).join('  ·  '),
+  ];
+  // Ruimte voor de regel "niet getoond" onderaan, mocht het niet passen.
+  let budget = LIMIT.description - 100;
+  budget -= sections[0].length;
   let remaining = 0;
   for (const level of levels) {
-    const lines = perLevel.get(level.key)
-      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
-      .map((gang) => `${gang.emoji ? `${gang.emoji} ` : ''}**${cut(gang.name || 'Onbekende gang', 40)}**`);
-    const kop = `${level.emoji} ${level.label} (${lines.length})`;
-    if (!lines.length) {
-      addField(embed, kop, '*Geen gangs*');
-      continue;
+    const gangsHier = perLevel.get(level.key)
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+    const regels = [`### ${level.emoji} ${level.label}`];
+    budget -= regels[0].length + 2;
+    if (!gangsHier.length) regels.push('*Geen gangs*');
+    for (const gang of gangsHier) {
+      const regel = gangTag(gang);
+      if (budget - regel.length - 1 < 0) {
+        remaining += 1;
+        continue;
+      }
+      regels.push(regel);
+      budget -= regel.length + 1;
     }
-    const { chunks, remaining: rest } = chunkLines(lines, LIMIT.fieldValue, 5, { budget });
-    chunks.forEach((chunk, index) => {
-      addField(embed, index === 0 ? kop : `${kop} (vervolg)`, chunk);
-      budget -= chunk.length;
-    });
-    remaining += rest;
+    sections.push(regels.join('\n'));
   }
-  if (remaining > 0) {
-    addField(embed, 'Niet getoond', `Nog ${remaining} gang(s) passen niet in dit overzicht.`);
-  }
+  if (remaining > 0) sections.push(`*Nog ${remaining} gang(s) passen niet in dit overzicht.*`);
 
-  setDescriptionLines(embed, [
-    levels.map((level) => `${level.emoji} **${perLevel.get(level.key).length}** ${level.label.toLowerCase()}`).join(' · '),
-    'De status wordt door OWC toegekend.',
-  ]);
+  embed.setDescription(cut(sections.join('\n\n'), LIMIT.description));
   return embed;
 }
 

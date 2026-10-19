@@ -55,7 +55,7 @@ const BOARDS = {
     messageKey: 'statusMessageId',
     label: 'statuskanaal',
     setup: '/setup statuskanaal',
-    build: (guild, gangs) => statusOverviewEmbed(gangs),
+    build: (guild, gangs) => statusOverviewEmbed(gangs, guild),
   },
 };
 
