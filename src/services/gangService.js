@@ -1649,8 +1649,9 @@ async function postStatusPromotion(guild, gang, vorige, nieuw) {
  * @param {import('discord.js').Guild} guild De server.
  * @param {object} gang Het GangRecord.
  * @param {string} statusKey Een key uit GANG_STATUSES.
- * @param {{actorId?: string}} [opts] Wie de wijziging doet.
- * @returns {Promise<{ok: true, gang: object, vorige: object, nieuw: object, omhoog: boolean, waarschuwing: string|null}|{ok: false, error: string}>}
+ * @param {{actorId?: string, melding?: boolean}} [opts] Wie de wijziging doet, en of een stap
+ *   omhoog een felicitatie krijgt (standaard ja; nee om de beginstand stil in te voeren).
+ * @returns {Promise<{ok: true, gang: object, vorige: object, nieuw: object, omhoog: boolean, gefeliciteerd: boolean, waarschuwing: string|null}|{ok: false, error: string}>}
  */
 async function setGangStatus(guild, gang, statusKey, opts = {}) {
   const nieuw = getGangStatus(statusKey);
@@ -1672,8 +1673,17 @@ async function setGangStatus(guild, gang, statusKey, opts = {}) {
   }
 
   const omhoog = nieuw.rank > vorige.rank;
-  const waarschuwing = omhoog ? await postStatusPromotion(guild, updated, vorige, nieuw) : null;
-  return { ok: true, gang: updated, vorige, nieuw, omhoog, waarschuwing };
+  const feliciteren = omhoog && opts?.melding !== false;
+  const waarschuwing = feliciteren ? await postStatusPromotion(guild, updated, vorige, nieuw) : null;
+  return {
+    ok: true,
+    gang: updated,
+    vorige,
+    nieuw,
+    omhoog,
+    gefeliciteerd: feliciteren && !waarschuwing,
+    waarschuwing,
+  };
 }
 
 // ---------------------------------------------------------------------------

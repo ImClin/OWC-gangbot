@@ -1257,8 +1257,10 @@ async function handleStatus(ctx) {
   }
   if (!await deferEphemeral(interaction)) return;
 
+  const melding = interaction.options.getBoolean('melding') !== false;
   const result = await gangService.setGangStatus(guild, found.gang, interaction.options.getString('status'), {
     actorId: interaction.user.id,
+    melding,
   });
   if (!result.ok) {
     await sendError(interaction, 'Status niet gewijzigd', result.error);
@@ -1270,6 +1272,8 @@ async function handleStatus(ctx) {
   let uitleg;
   if (!omhoog) {
     uitleg = 'Dit is een stap omlaag, dus er komt geen bericht in de mededelingen van de gang.';
+  } else if (!melding) {
+    uitleg = 'Stil ingevoerd met `melding:nee`: er is geen felicitatie geplaatst.';
   } else if (waarschuwing) {
     uitleg = `⚠️ ${waarschuwing}`;
   } else {
@@ -1285,7 +1289,8 @@ async function handleStatus(ctx) {
     guild,
     infoEmbed(
       '🏷️ Gangstatus gewijzigd',
-      `**${gangLabel(gang)}**: ${overgang}\nGewijzigd door <@${interaction.user.id}>.`,
+      `**${gangLabel(gang)}**: ${overgang}\nGewijzigd door <@${interaction.user.id}>.`
+        + (omhoog && !melding ? ' Stil ingevoerd, zonder felicitatie.' : ''),
     ),
   );
   refreshStatusOverview(guild);
@@ -1920,7 +1925,11 @@ function addBeheerSubcommands(builder) {
       .addChoices(...GANG_STATUSES.map((status) => ({
         name: `${status.emoji} ${status.label}`,
         value: status.key,
-      })))));
+      }))))
+    .addBooleanOption((o) => o
+      .setName('melding')
+      .setDescription('Felicitatie posten bij een stap omhoog? (standaard ja; nee = stil invoeren)')
+      .setRequired(false)));
 
   builder.addSubcommand((sub) => addGangOption(sub
     .setName('herstel')

@@ -52,8 +52,8 @@ const DEFAULT_UNDERBOSS_LIMIT = 2;
  */
 const GANG_STATUSES = [
   { key: 'onofficieel', label: 'Onofficieel', emoji: '⚪', rank: 0 },
-  { key: 'verified', label: 'Verified', emoji: '☑️', rank: 1 },
-  { key: 'officieel', label: 'Officieel', emoji: '⭐', rank: 2 },
+  { key: 'verified', label: 'Verified', emoji: '🔵', rank: 1 },
+  { key: 'officieel', label: 'Officieel', emoji: '🟡', rank: 2 },
 ];
 
 /** Status van een nieuwe gang, en van elke gang die nog van voor de statussen stamt. */
