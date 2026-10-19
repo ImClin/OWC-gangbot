@@ -492,6 +492,13 @@ meegeven (standaard allebei 2).
 De bot post daar meteen een overzicht van alle gangs en hun bezetting, en werkt dat elke
 5 minuten bij.
 
+Wil je ook een overzicht van welke gangs officieel, verified en onofficieel zijn? Kies
+daar een eigen kanaal voor:
+
+```
+/setup statuskanaal kanaal:#gang-status
+```
+
 ### Stap 7 (optioneel) - Gedeelde categorieen
 
 Heb je categorieen waar **alle** gangs bij mogen (bijvoorbeeld een algemene
@@ -563,6 +570,7 @@ Het staffgedeelte, in een **apart commando** zodat Discord het kan verbergen. Wi
 | `/gangbeheer verwijderen` | `gang`* (typ om te zoeken), `rollen_verwijderen` (ja/nee, standaard **ja**) | Verwijdert de categorie en alle kanalen van de gang. Met `rollen_verwijderen:ja` gaan ook de drie rollen weg. Je krijgt eerst een bevestigingsvraag met knoppen; die vervalt na 60 seconden en alleen jij kunt erop klikken. **Dit kan niet ongedaan gemaakt worden.** |
 | `/gangbeheer hernoemen` | `gang`*, `naam`, `emoji`, `afkorting`, `afkorting_weghalen` (ja/nee) | Wijzigt de naam, de emoji en/of de afkorting. De categorie, de drie rollen en de kanalen met de gangnaam erin worden meteen hernoemd. Met `afkorting_weghalen:ja` komen de kanaalnamen weer uit de volledige naam. |
 | `/gangbeheer limiet` | `gang`*, `leden` (1-100), `bosses` (1-10), `underbosses` (0-10) | Past de limieten van die ene gang aan. Wat je niet invult, blijft ongewijzigd. |
+| `/gangbeheer status` | `gang`*, `status`* (Onofficieel / Verified / Officieel) | Zet de status van een gang. Gaat de gang omhoog, dan post de bot een felicitatie in de mededelingen van de gang; omlaag gebeurt zonder bericht. Zie [Gangstatus](#gangstatus-onofficieel-verified-officieel). |
 | `/gangbeheer herstel` | `gang` (optioneel; **leeg = alle gangs**) | Maakt ontbrekende rollen, de categorie en ontbrekende kanalen opnieuw aan, zet alle permissies terug zoals ze horen en zet de rollenlijst weer op volgorde. Je eerste hulp als er per ongeluk iets verwijderd is, én de manier om een wijziging in de permissies over alle bestaande gangs uit te rollen. Zonder `gang` loopt de bot ze een voor een langs en meldt hij per gang wat er veranderd is. |
 
 Bij elke `gang`-optie krijg je tijdens het typen suggesties (autocomplete): begin de naam
@@ -586,6 +594,7 @@ Alleen bruikbaar met het serverrecht **Server beheren**. Alle antwoorden zijn ep
 | `/setup gedeelde-categorie` | `categorie`*, `actie`* (`toevoegen` / `verwijderen`), `sync_kinderen` (ja/nee, standaard nee) | Beheert de lijst categorieen waar alle gangs toegang toe krijgen. Gangs mogen daar **kijken en meelezen, maar niet typen of praten**; alleen de **staffrol** voert er het woord. `sync_kinderen:ja` **overschrijft de permissies van de kanalen in die categorie** - gebruik met beleid. |
 | `/setup limieten` | `leden` (1-100), `bosses` (1-10), `underbosses` (0-10) | Zet de standaardlimieten voor **nieuwe** gangs. Bestaande gangs veranderen niet. |
 | `/setup dashboard` | `kanaal`* | Kiest het kanaal voor het live bezettingsoverzicht en post het bericht meteen. |
+| `/setup statuskanaal` | `kanaal`* | Kiest het kanaal waarin de bot bijhoudt welke gangs officieel, verified en onofficieel zijn, en post dat overzicht meteen. |
 | `/setup toon` | (geen) | Toont de huidige configuratie, een checklist van wat nog ontbreekt en welke botrechten missen. |
 
 ---
@@ -1144,6 +1153,45 @@ bericht en zou het dashboard stilletjes stoppen met bijwerken.
 De bot bewaakt dat zelf: hij vult tot ongeveer 4800 tekens aan gangregels en zet de rest
 onder *"Niet getoond"*. In de praktijk passen er rond de **80 gangs** volledig in; daarboven
 verschijnt die regel. Het bericht blijft dus altijd geldig, hoeveel gangs je ook hebt.
+
+### Gangstatus: onofficieel, verified, officieel
+
+Elke gang heeft een status. Er zijn drie niveaus, van laag naar hoog:
+
+| Niveau | Betekenis |
+|---|---|
+| ⚪ **Onofficieel** | De start. Elke nieuwe gang, en elke gang die er al was, begint hier. |
+| ☑️ **Verified** | Door OWC erkend als gang in de stad. |
+| ⭐ **Officieel** | Het hoogste niveau: een officiële gang van de onderwereld. |
+
+De bot berekent de status niet zelf; **OWC zet hem met de hand**:
+
+```
+/gangbeheer status gang:Rayuza status:Verified
+```
+
+- **Omhoog** (ook als je een niveau overslaat): de bot post een felicitatie in
+  `📢・mededeling` van die gang, met een ping naar de gangrol.
+- **Omlaag**: geen bericht aan de gang. De wijziging staat alleen in het statusoverzicht
+  en in het logboek.
+
+Elke wijziging komt in het logboek met wie hem deed. `/gang info` laat de huidige status
+zien en sinds wanneer.
+
+**Het statusoverzicht.** Laat de bot in een kanaal bijhouden welke gangs op welk niveau
+staan:
+
+```
+/setup statuskanaal kanaal:#gang-status
+```
+
+Daar staat één bericht met per niveau de gangs, hoogste niveau bovenaan. De bot werkt het
+bij zodra er een status verandert en als er een gang bijkomt, weggaat of hernoemd wordt.
+Gooi je het bericht weg, dan plaatst de bot binnen 5 minuten vanzelf een nieuw bericht.
+
+De teksten van de niveaus staan in `GANG_STATUSES` in
+[src/lib/constants.js](src/lib/constants.js); de felicitatie in
+`buildStatusPromotionMessage` in [src/services/gangService.js](src/services/gangService.js).
 
 ---
 

@@ -1480,8 +1480,92 @@ async function handleLimieten(interaction) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* /setup dashboard                                                            */
+/* /setup dashboard en /setup statuskanaal                                     */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * De twee overzichten die de bot zelf bijhoudt. Ze werken hetzelfde: één bericht in een
+ * gekozen kanaal dat de bot bijwerkt en terugplaatst als het verdwijnt.
+ */
+const BOARD_SETUPS = {
+  dashboard: {
+    channelKey: 'dashboardChannelId',
+    messageKey: 'dashboardMessageId',
+    wat: 'het bezettingsoverzicht',
+    gelukt: 'Dashboard ingesteld',
+    mislukt: 'Dashboardkanaal opgeslagen, maar niet geplaatst',
+    update: (guild) => dashboardService.updateDashboard(guild),
+    uitleg: [
+      'De bot houdt één bericht bij met de bezetting van alle gangs en ververst dat elke 5 minuten.',
+      'Verwijder je dat bericht, dan plaatst de bot bij de volgende ronde vanzelf een nieuw bericht.',
+    ],
+  },
+  status: {
+    channelKey: 'statusChannelId',
+    messageKey: 'statusMessageId',
+    wat: 'het statusoverzicht',
+    gelukt: 'Statuskanaal ingesteld',
+    mislukt: 'Statuskanaal opgeslagen, maar niet geplaatst',
+    update: (guild) => dashboardService.updateStatusOverview(guild),
+    uitleg: [
+      'De bot houdt één bericht bij met welke gangs officieel, verified en onofficieel zijn.',
+      'Het wordt bijgewerkt zodra OWC een status wijzigt met `/gangbeheer status`, en als er een'
+        + ' gang bijkomt, weggaat of hernoemd wordt.',
+      'Verwijder je dat bericht, dan plaatst de bot binnen 5 minuten vanzelf een nieuw bericht.',
+    ],
+  },
+};
+
+/**
+ * Koppelt een overzicht aan het gekozen kanaal en plaatst het meteen.
+ *
+ * @param {import('discord.js').ChatInputCommandInteraction} interaction De interactie.
+ * @param {object} spec Een item uit BOARD_SETUPS.
+ * @returns {Promise<void>}
+ */
+async function setupBoard(interaction, spec) {
+  if (!(await deferEphemeral(interaction))) return;
+  const guild = interaction.guild;
+  const picked = interaction.options.getChannel('kanaal');
+  const channel = resolveGuildChannel(guild, picked?.id) || picked;
+
+  if (!channel || !TEXT_CHANNEL_TYPES.includes(channel.type)) {
+    return respond(interaction, embeds.errorEmbed(
+      'Ongeldig kanaal',
+      `Kies een gewoon tekstkanaal waarin de bot ${spec.wat} mag plaatsen.`,
+    ));
+  }
+
+  const huidig = readConfig(guild.id);
+  if (!huidig) return respond(interaction, saveFailedEmbed());
+
+  const patch = { [spec.channelKey]: channel.id };
+  // Ander kanaal? Dan is het oude bericht-id waardeloos en plaatsen we een nieuw bericht.
+  if (huidig[spec.channelKey] !== channel.id) patch[spec.messageKey] = null;
+  if (!writeConfig(guild.id, patch)) return respond(interaction, saveFailedEmbed());
+
+  const missend = missingChannelPermissions(guild, channel, POST_CHANNEL_PERMS);
+  let result = { ok: false, error: null };
+  try {
+    result = await spec.update(guild);
+  } catch (err) {
+    logger.error(`Onverwachte fout bij het plaatsen van ${spec.wat}.`, err);
+    result = { ok: false, error: `Onverwachte fout bij het plaatsen van ${spec.wat}.` };
+  }
+
+  const gelukt = Boolean(result?.ok) && !missend.length;
+  const embed = gelukt ? embeds.successEmbed(spec.gelukt) : embeds.warningEmbed(spec.mislukt);
+  addField(embed, 'Kanaal', `<#${channel.id}>`);
+  if (missend.length) {
+    addField(embed, 'Ontbrekende kanaalrechten', [
+      `De bot mist in <#${channel.id}>: ${missend.join(', ')}.`,
+      'Geef de botrol die rechten in de kanaalinstellingen en voer dit commando opnieuw uit.',
+    ]);
+  }
+  if (!result?.ok && result?.error) addField(embed, 'Melding', result.error);
+  addField(embed, 'Hoe het werkt', spec.uitleg);
+  return respond(interaction, embed);
+}
 
 /**
  * Subcommand `dashboard`: kiest het kanaal voor het live bezettingsoverzicht en
@@ -1491,52 +1575,18 @@ async function handleLimieten(interaction) {
  * @returns {Promise<void>}
  */
 async function handleDashboard(interaction) {
-  if (!(await deferEphemeral(interaction))) return;
-  const guild = interaction.guild;
-  const picked = interaction.options.getChannel('kanaal');
-  const channel = resolveGuildChannel(guild, picked?.id) || picked;
+  return setupBoard(interaction, BOARD_SETUPS.dashboard);
+}
 
-  if (!channel || !TEXT_CHANNEL_TYPES.includes(channel.type)) {
-    return respond(interaction, embeds.errorEmbed(
-      'Ongeldig kanaal',
-      'Kies een gewoon tekstkanaal waarin de bot het bezettingsoverzicht mag plaatsen.',
-    ));
-  }
-
-  const huidig = readConfig(guild.id);
-  if (!huidig) return respond(interaction, saveFailedEmbed());
-
-  const patch = { dashboardChannelId: channel.id };
-  // Ander kanaal? Dan is het oude bericht-id waardeloos en plaatsen we een nieuw bericht.
-  if (huidig.dashboardChannelId !== channel.id) patch.dashboardMessageId = null;
-  if (!writeConfig(guild.id, patch)) return respond(interaction, saveFailedEmbed());
-
-  const missend = missingChannelPermissions(guild, channel, POST_CHANNEL_PERMS);
-  let result = { ok: false, error: null };
-  try {
-    result = await dashboardService.updateDashboard(guild);
-  } catch (err) {
-    logger.error('Onverwachte fout bij het plaatsen van het dashboard.', err);
-    result = { ok: false, error: 'Onverwachte fout bij het plaatsen van het dashboardbericht.' };
-  }
-
-  const gelukt = Boolean(result?.ok) && !missend.length;
-  const embed = gelukt
-    ? embeds.successEmbed('Dashboard ingesteld')
-    : embeds.warningEmbed('Dashboardkanaal opgeslagen, maar niet geplaatst');
-  addField(embed, 'Kanaal', `<#${channel.id}>`);
-  if (missend.length) {
-    addField(embed, 'Ontbrekende kanaalrechten', [
-      `De bot mist in <#${channel.id}>: ${missend.join(', ')}.`,
-      'Geef de botrol die rechten in de kanaalinstellingen en voer dit commando opnieuw uit.',
-    ]);
-  }
-  if (!result?.ok && result?.error) addField(embed, 'Melding', result.error);
-  addField(embed, 'Hoe het werkt', [
-    'De bot houdt één bericht bij met de bezetting van alle gangs en ververst dat elke 5 minuten.',
-    'Verwijder je dat bericht, dan plaatst de bot bij de volgende ronde vanzelf een nieuw bericht.',
-  ]);
-  return respond(interaction, embed);
+/**
+ * Subcommand `statuskanaal`: kiest het kanaal waarin de bot bijhoudt welke gangs
+ * officieel, verified en onofficieel zijn, en plaatst dat overzicht meteen.
+ *
+ * @param {import('discord.js').ChatInputCommandInteraction} interaction De interactie.
+ * @returns {Promise<void>}
+ */
+async function handleStatuskanaal(interaction) {
+  return setupBoard(interaction, BOARD_SETUPS.status);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1764,6 +1814,8 @@ async function handleToon(interaction) {
   addField(embed, 'Dashboardbericht', config.dashboardMessageId
     ? `\`${config.dashboardMessageId}\``
     : '— *nog niet geplaatst*', true);
+  addField(embed, 'Statuskanaal (officieel, verified, onofficieel)',
+    describeChannel(guild, config.statusChannelId), true);
   addField(embed, 'Leidingkanalen (alleen boss en underboss)',
     describeLeaderChannels(guild, config));
   addField(embed, 'Gedeelde categorieën', describeSharedCategories(guild, config));
@@ -1912,6 +1964,14 @@ const data = new SlashCommandBuilder()
       .addChannelTypes(...TEXT_CHANNEL_TYPES)
       .setRequired(true)))
   .addSubcommand((sub) => sub
+    .setName('statuskanaal')
+    .setDescription('Kies het kanaal waarin staat welke gangs officieel, verified en onofficieel zijn.')
+    .addChannelOption((opt) => opt
+      .setName('kanaal')
+      .setDescription('Kanaal waarin het statusoverzicht komt te staan.')
+      .addChannelTypes(...TEXT_CHANNEL_TYPES)
+      .setRequired(true)))
+  .addSubcommand((sub) => sub
     .setName('toon')
     .setDescription('Toon de huidige configuratie, de checklist en de botrechten.'));
 
@@ -1926,6 +1986,7 @@ const HANDLERS = {
   extrarollen: handleExtraRollen,
   limieten: handleLimieten,
   dashboard: handleDashboard,
+  statuskanaal: handleStatuskanaal,
   toon: handleToon,
 };
 
@@ -1957,7 +2018,7 @@ async function execute(interaction) {
     return respond(interaction, embeds.errorEmbed(
       'Onbekend subcommando',
       'Kies een van: `kanalen`, `leidingkanaal`, `staffrol`, `meldrol`, `bodemrol`, '
-        + '`extrarollen`, `gedeelde-categorie`, `limieten`, `dashboard` of `toon`.',
+        + '`extrarollen`, `gedeelde-categorie`, `limieten`, `dashboard`, `statuskanaal` of `toon`.',
     ));
   }
 

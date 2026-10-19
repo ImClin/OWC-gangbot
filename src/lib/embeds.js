@@ -6,7 +6,7 @@
 // overschreden worden.
 
 const { EmbedBuilder } = require('discord.js');
-const { COLORS } = require('./constants');
+const { COLORS, GANG_STATUSES, DEFAULT_GANG_STATUS, getGangStatus } = require('./constants');
 const { truncate } = require('./parse');
 const { formatCapacity, capacityBar, capacityColor } = require('./capacity');
 
@@ -551,9 +551,13 @@ function gangInfoEmbed(gang, counts, guild, options = {}) {
     ? guild.channels.cache.get(g.categoryId)
     : undefined;
 
+  const status = getGangStatus(g.status) || getGangStatus(DEFAULT_GANG_STATUS);
   setDescriptionLines(embed, [
     bar || null,
     `**${text}**`,
+    status
+      ? `Status: ${status.emoji} **${status.label}**${g.statusChangedAt ? ` (sinds ${relTime(g.statusChangedAt)})` : ''}`
+      : null,
     g.categoryId
       ? `Categorie: ${category ? `<#${g.categoryId}>` : '*niet gevonden — gebruik `/gangbeheer herstel`*'}`
       : null,
@@ -821,6 +825,61 @@ function dashboardEmbed(gangs, countsByGangId, updatedAtUnix) {
   return embed;
 }
 
+/**
+ * Het statusoverzicht: per niveau, hoogste eerst, de gangs die OWC op dat niveau heeft
+ * gezet. Een gang zonder geldige status valt onder de standaard (onofficieel), zodat hij
+ * nooit uit het overzicht verdwijnt.
+ *
+ * Net als het dashboard blijft dit binnen de 6000 tekens van een embed: alle niveaus delen
+ * hetzelfde budget, en wat niet past komt onder "Niet getoond".
+ * @param {GangRecord[]} gangs Alle gangs.
+ * @returns {EmbedBuilder}
+ */
+function statusOverviewEmbed(gangs) {
+  const list = Array.isArray(gangs) ? gangs.filter(Boolean) : [];
+  const embed = baseEmbed(color('info')).setTitle('🏷️ Gangstatus');
+
+  if (!list.length) {
+    embed.setDescription('Er zijn nog geen gangs aangemaakt.');
+    return embed;
+  }
+
+  const levels = GANG_STATUSES.slice().sort((a, b) => b.rank - a.rank);
+  const perLevel = new Map(levels.map((level) => [level.key, []]));
+  for (const gang of list) {
+    const key = perLevel.has(gang.status) ? gang.status : DEFAULT_GANG_STATUS;
+    perLevel.get(key).push(gang);
+  }
+
+  let budget = GANG_LINES_BUDGET;
+  let remaining = 0;
+  for (const level of levels) {
+    const lines = perLevel.get(level.key)
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+      .map((gang) => `${gang.emoji ? `${gang.emoji} ` : ''}**${cut(gang.name || 'Onbekende gang', 40)}**`);
+    const kop = `${level.emoji} ${level.label} (${lines.length})`;
+    if (!lines.length) {
+      addField(embed, kop, '*Geen gangs*');
+      continue;
+    }
+    const { chunks, remaining: rest } = chunkLines(lines, LIMIT.fieldValue, 5, { budget });
+    chunks.forEach((chunk, index) => {
+      addField(embed, index === 0 ? kop : `${kop} (vervolg)`, chunk);
+      budget -= chunk.length;
+    });
+    remaining += rest;
+  }
+  if (remaining > 0) {
+    addField(embed, 'Niet getoond', `Nog ${remaining} gang(s) passen niet in dit overzicht.`);
+  }
+
+  setDescriptionLines(embed, [
+    levels.map((level) => `${level.emoji} **${perLevel.get(level.key).length}** ${level.label.toLowerCase()}`).join(' · '),
+    'De status wordt door OWC toegekend.',
+  ]);
+  return embed;
+}
+
 module.exports = {
   successEmbed,
   errorEmbed,
@@ -833,4 +892,5 @@ module.exports = {
   registerEmbed,
   historyEmbed,
   dashboardEmbed,
+  statusOverviewEmbed,
 };

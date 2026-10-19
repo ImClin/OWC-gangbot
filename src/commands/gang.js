@@ -18,7 +18,7 @@ const {
 
 const store = require('../store');
 const logger = require('../lib/logger');
-const { BUTTON, CHANNEL_BLUEPRINT } = require('../lib/constants');
+const { BUTTON, CHANNEL_BLUEPRINT, GANG_STATUSES } = require('../lib/constants');
 const { truncate } = require('../lib/parse');
 const { countGang, formatCapacity } = require('../lib/capacity');
 const { ensureMemberCache } = require('../lib/memberCache');
@@ -437,6 +437,24 @@ function refreshDashboard(guild) {
 }
 
 /**
+ * Werkt het statusoverzicht bij zonder erop te wachten. Alleen nodig na wijzigingen die in
+ * dat overzicht zichtbaar zijn: een status, of een gang die erbij komt, weggaat of van naam
+ * of emoji wisselt. Aannames en ontslagen raken het niet.
+ *
+ * @param {import('discord.js').Guild} guild De server.
+ * @returns {void}
+ */
+function refreshStatusOverview(guild) {
+  if (!guild) return;
+  try {
+    void Promise.resolve(dashboardService.updateStatusOverview(guild))
+      .catch((err) => logger.warn(`/gang: statusoverzicht bijwerken mislukt: ${err?.message || err}`));
+  } catch (err) {
+    logger.warn(`/gang: statusoverzicht bijwerken mislukt: ${err?.message || err}`);
+  }
+}
+
+/**
  * Post een actie in het staff-logkanaal (met terugdraaiknop) zonder erop te wachten.
  *
  * @param {import('discord.js').Guild} guild De server.
@@ -587,6 +605,7 @@ async function handleAanmaken(ctx) {
     ),
   );
   refreshDashboard(guild);
+  refreshStatusOverview(guild);
 }
 
 // ---------------------------------------------------------------------------
@@ -909,6 +928,7 @@ async function runConfirmedDelete(interaction, gang, deleteRoles, actorId) {
       ),
     );
     refreshDashboard(guild);
+    refreshStatusOverview(guild);
   }
 }
 
@@ -1212,6 +1232,63 @@ async function handleHernoemen(ctx) {
       + (result.error ? `\n\n⚠️ ${result.error}` : ''),
   ));
   refreshDashboard(guild);
+  refreshStatusOverview(guild);
+}
+
+// ---------------------------------------------------------------------------
+// /gangbeheer status
+// ---------------------------------------------------------------------------
+
+/**
+ * Zet een gang op onofficieel, verified of officieel. Gaat hij omhoog, dan post gangService
+ * een felicitatie in de mededelingen van de gang; omlaag blijft dat achterwege.
+ *
+ * @param {CommandContext} ctx De context.
+ * @returns {Promise<void>}
+ */
+async function handleStatus(ctx) {
+  const { interaction, guild } = ctx;
+  if (!await ensureStaff(ctx, 'de status van een gang wijzigen')) return;
+
+  const found = resolveGangOption(ctx, true);
+  if (!found.ok) {
+    await sendError(interaction, found.titel || 'Gang niet gevonden', found.error);
+    return;
+  }
+  if (!await deferEphemeral(interaction)) return;
+
+  const result = await gangService.setGangStatus(guild, found.gang, interaction.options.getString('status'), {
+    actorId: interaction.user.id,
+  });
+  if (!result.ok) {
+    await sendError(interaction, 'Status niet gewijzigd', result.error);
+    return;
+  }
+
+  const { gang, vorige, nieuw, omhoog, waarschuwing } = result;
+  const overgang = `${vorige.emoji} ${vorige.label} → ${nieuw.emoji} **${nieuw.label}**`;
+  let uitleg;
+  if (!omhoog) {
+    uitleg = 'Dit is een stap omlaag, dus er komt geen bericht in de mededelingen van de gang.';
+  } else if (waarschuwing) {
+    uitleg = `⚠️ ${waarschuwing}`;
+  } else {
+    uitleg = gang.channels?.mededeling
+      ? `De felicitatie staat in <#${gang.channels.mededeling}>.`
+      : 'De felicitatie is geplaatst.';
+  }
+  const kop = `Status gewijzigd — ${gang.name}`;
+  const inhoud = `${overgang}\n\n${uitleg}`;
+  await sendEmbed(interaction, waarschuwing ? warningEmbed(kop, inhoud) : successEmbed(kop, inhoud));
+
+  logNoticeAsync(
+    guild,
+    infoEmbed(
+      '🏷️ Gangstatus gewijzigd',
+      `**${gangLabel(gang)}**: ${overgang}\nGewijzigd door <@${interaction.user.id}>.`,
+    ),
+  );
+  refreshStatusOverview(guild);
 }
 
 /**
@@ -1834,6 +1911,18 @@ function addBeheerSubcommands(builder) {
     .addIntegerOption((o) => o.setName('underbosses').setDescription('Max. aantal underbosses').setMinValue(0).setMaxValue(10)));
 
   builder.addSubcommand((sub) => addGangOption(sub
+    .setName('status')
+    .setDescription('Zet een gang op onofficieel, verified of officieel'), true)
+    .addStringOption((o) => o
+      .setName('status')
+      .setDescription('Het nieuwe niveau; omhoog geeft een felicitatie in de mededelingen')
+      .setRequired(true)
+      .addChoices(...GANG_STATUSES.map((status) => ({
+        name: `${status.emoji} ${status.label}`,
+        value: status.key,
+      })))));
+
+  builder.addSubcommand((sub) => addGangOption(sub
     .setName('herstel')
     .setDescription('Herstel rollen, kanalen en permissies (leeg = alle gangs)'), false,
   'Welke gang? Laat leeg om alle gangs te herstellen'));
@@ -1920,7 +2009,7 @@ const data = buildData();
 function buildBeheerData() {
   const builder = new SlashCommandBuilder()
     .setName('gangbeheer')
-    .setDescription('Gangs aanmaken, hernoemen, herstellen en verwijderen (staff)')
+    .setDescription('Gangs aanmaken, hernoemen, status geven, herstellen en verwijderen (staff)')
     .setContexts(InteractionContextType.Guild)
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild);
 
@@ -1945,6 +2034,7 @@ const BEHEER_HANDLERS = {
   verwijderen: handleVerwijderen,
   hernoemen: handleHernoemen,
   limiet: handleLimiet,
+  status: handleStatus,
   herstel: handleHerstel,
 };
 

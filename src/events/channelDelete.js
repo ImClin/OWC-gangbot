@@ -61,6 +61,7 @@ function herkenKanaal(guildId, channelId) {
     { key: 'fireChannelId', label: 'ontslagkanaal', herstel: '/setup kanalen ontslagen: #kanaal' },
     { key: 'logChannelId', label: 'logkanaal', herstel: '/setup kanalen logboek: #kanaal' },
     { key: 'dashboardChannelId', label: 'dashboardkanaal', herstel: '/setup dashboard kanaal: #kanaal' },
+    { key: 'statusChannelId', label: 'statuskanaal', herstel: '/setup statuskanaal kanaal: #kanaal' },
   ];
   for (const item of serverKanalen) {
     if (config?.[item.key] === channelId) {

@@ -18,6 +18,8 @@ const constants = require('../lib/constants');
  * @property {string[]} globalRoleIds Rollen die in elke gangcategorie mogen (OWC, wapendealers).
  * @property {string|null} dashboardChannelId
  * @property {string|null} dashboardMessageId
+ * @property {string|null} statusChannelId Kanaal met het overzicht van de gangstatussen.
+ * @property {string|null} statusMessageId Het bericht in dat kanaal dat de bot bijwerkt.
  * @property {number} defaultMemberLimit
  * @property {number} defaultBossLimit
  * @property {number} defaultUnderbossLimit
@@ -35,6 +37,9 @@ const constants = require('../lib/constants');
  * @property {string|null} bossRoleId
  * @property {string|null} underbossRoleId
  * @property {Record<string, string|null>} channels
+ * @property {string} status Een key uit GANG_STATUSES: 'onofficieel', 'verified' of 'officieel'.
+ * @property {number|null} statusChangedAt Wanneer OWC de status het laatst wijzigde.
+ * @property {string|null} statusChangedBy Wie dat deed.
  * @property {number} memberLimit
  * @property {number} bossLimit
  * @property {number} underbossLimit
@@ -222,6 +227,13 @@ const DEFAULT_BOSS_LIMIT = toInt(constants.DEFAULT_BOSS_LIMIT, 2, 1);
 const DEFAULT_UNDERBOSS_LIMIT = toInt(constants.DEFAULT_UNDERBOSS_LIMIT, 2, 0);
 const MAX_ACTIONS_KEPT = toInt(constants.MAX_ACTIONS_KEPT, 5000, 1);
 
+const STATUS_KEYS = Array.isArray(constants.GANG_STATUSES) && constants.GANG_STATUSES.length
+  ? constants.GANG_STATUSES.map((item) => item.key)
+  : ['onofficieel', 'verified', 'officieel'];
+const DEFAULT_STATUS = STATUS_KEYS.includes(constants.DEFAULT_GANG_STATUS)
+  ? constants.DEFAULT_GANG_STATUS
+  : STATUS_KEYS[0];
+
 const DATA_DIR = typeof config.dataDir === 'string' && config.dataDir.trim()
   ? config.dataDir
   : path.join(__dirname, '..', '..', 'data');
@@ -252,6 +264,8 @@ function defaultGuildConfig() {
     globalRoleIds: [],
     dashboardChannelId: null,
     dashboardMessageId: null,
+    statusChannelId: null,
+    statusMessageId: null,
     defaultMemberLimit: DEFAULT_MEMBER_LIMIT,
     defaultBossLimit: DEFAULT_BOSS_LIMIT,
     defaultUnderbossLimit: DEFAULT_UNDERBOSS_LIMIT,
@@ -323,6 +337,8 @@ function normalizeConfig(raw) {
   out.logChannelId = asId(out.logChannelId);
   out.dashboardChannelId = asId(out.dashboardChannelId);
   out.dashboardMessageId = asId(out.dashboardMessageId);
+  out.statusChannelId = asId(out.statusChannelId);
+  out.statusMessageId = asId(out.statusMessageId);
   out.sharedCategoryIds = uniqueIds(out.sharedCategoryIds);
   out.globalRoleIds = uniqueIds(out.globalRoleIds);
   out.defaultMemberLimit = toInt(out.defaultMemberLimit, DEFAULT_MEMBER_LIMIT, 1);
@@ -379,6 +395,12 @@ function normalizeGang(raw, cfg) {
   if (legacyMeeloperRoleId) out.meeloperRoleId = legacyMeeloperRoleId;
   else delete out.meeloperRoleId;
   out.channels = normalizeChannels(src.channels);
+  // Een gang van voor de statussen, of met een status die niet (meer) bestaat, staat op de
+  // standaard. Zo hoeft er niets gemigreerd te worden en verschijnt elke gang in het overzicht.
+  const statusKey = typeof src.status === 'string' ? src.status.trim().toLowerCase() : '';
+  out.status = STATUS_KEYS.includes(statusKey) ? statusKey : DEFAULT_STATUS;
+  out.statusChangedAt = toInt(src.statusChangedAt, null, 0);
+  out.statusChangedBy = asId(src.statusChangedBy);
   out.memberLimit = toInt(src.memberLimit, cfg.defaultMemberLimit, 1);
   migrateGangLimits(out);
   out.bossLimit = toInt(src.bossLimit, cfg.defaultBossLimit, 1);

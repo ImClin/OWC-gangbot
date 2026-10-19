@@ -17,6 +17,8 @@ const {
   ROLE_SUFFIX,
   ROLE_KIND,
   GANG_ROLE_COLOR,
+  DEFAULT_GANG_STATUS,
+  getGangStatus,
   buildChannelName,
 } = require('../lib/constants');
 const { slugify, isValidEmoji, truncate } = require('../lib/parse');
@@ -1579,6 +1581,102 @@ async function postWelcomeMessage(guild, gang, guildConfig) {
 }
 
 // ---------------------------------------------------------------------------
+// Gangstatus: onofficieel, verified, officieel
+// ---------------------------------------------------------------------------
+
+/** Extra regel in de felicitatie per bereikt niveau; een niveau zonder regel krijgt er geen. */
+const STATUS_PROMOTION_LINES = {
+  verified: 'OWC heeft jullie gezien en erkent jullie als gang in de stad.',
+  officieel: 'Jullie zijn nu een **officiële gang** van de onderwereld van Europa.',
+};
+
+/**
+ * De felicitatie voor een gang die een statusniveau omhoog is gegaan.
+ *
+ * @param {object} gang Het GangRecord (al met de nieuwe status).
+ * @param {{emoji: string, label: string}} vorige Het oude niveau.
+ * @param {{key: string, emoji: string, label: string}} nieuw Het nieuwe niveau.
+ * @returns {string} De berichttekst, binnen de 2000 tekens.
+ */
+function buildStatusPromotionMessage(gang, vorige, nieuw) {
+  const aanhef = gang?.roleId ? `<@&${gang.roleId}>` : `${gang?.emoji || ''} ${gang?.name || 'gang'}`.trim();
+  const regels = [
+    `Beste ${aanhef},`,
+    '',
+    '🎉 **Gefeliciteerd!** OWC heeft jullie gang een niveau omhoog gezet:',
+    `${vorige.emoji} ${vorige.label} → ${nieuw.emoji} **${nieuw.label}**`,
+    '',
+    STATUS_PROMOTION_LINES[nieuw.key] || null,
+    'Dit is de verdienste van iedereen in de gang. Ga zo door!',
+    '',
+    'Veel succes in de stad!',
+  ].filter((regel) => regel !== null);
+  return truncate(regels.join('\n'), MAX_MESSAGE_LENGTH);
+}
+
+/**
+ * Post de felicitatie in de mededelingen van de gang en pingt alleen de gangrol. Gooit nooit.
+ *
+ * @param {import('discord.js').Guild} guild De server.
+ * @param {object} gang Het GangRecord.
+ * @param {object} vorige Het oude niveau.
+ * @param {object} nieuw Het nieuwe niveau.
+ * @returns {Promise<string|null>} null als het gelukt is, anders een Nederlandse melding.
+ */
+async function postStatusPromotion(guild, gang, vorige, nieuw) {
+  const channel = resolveChannel(guild, gang?.channels?.mededeling);
+  if (!channel || typeof channel.send !== 'function') {
+    return 'Het mededelingenkanaal van de gang bestaat niet meer, dus de felicitatie is niet geplaatst.'
+      + ` Zet het terug met \`/gangbeheer herstel gang:${gang?.name}\`.`;
+  }
+  try {
+    await channel.send({
+      content: buildStatusPromotionMessage(gang, vorige, nieuw),
+      allowedMentions: { parse: [], roles: gang?.roleId ? [gang.roleId] : [] },
+    });
+    return null;
+  } catch (err) {
+    logger.warn(`gangService: felicitatie voor ${gang?.name} niet geplaatst (${err?.message || err}).`);
+    return `De felicitatie kon niet in <#${channel.id}> geplaatst worden (${err?.message || err}).`;
+  }
+}
+
+/**
+ * Zet een gang op een statusniveau. Gaat de gang daarmee omhoog, dan komt er een felicitatie
+ * in zijn mededelingen; omlaag gebeurt stil (alleen het overzicht en het logboek tonen het).
+ * Het overzicht zelf bijwerken is aan de aanroeper, net als bij de andere wijzigingen.
+ *
+ * @param {import('discord.js').Guild} guild De server.
+ * @param {object} gang Het GangRecord.
+ * @param {string} statusKey Een key uit GANG_STATUSES.
+ * @param {{actorId?: string}} [opts] Wie de wijziging doet.
+ * @returns {Promise<{ok: true, gang: object, vorige: object, nieuw: object, omhoog: boolean, waarschuwing: string|null}|{ok: false, error: string}>}
+ */
+async function setGangStatus(guild, gang, statusKey, opts = {}) {
+  const nieuw = getGangStatus(statusKey);
+  if (!nieuw) {
+    return { ok: false, error: `Onbekende status \`${statusKey}\`. Kies onofficieel, verified of officieel.` };
+  }
+  const vorige = getGangStatus(gang?.status) || getGangStatus(DEFAULT_GANG_STATUS);
+  if (vorige.key === nieuw.key) {
+    return { ok: false, error: `${gang.name} is al ${nieuw.emoji} **${nieuw.label}**.` };
+  }
+
+  const updated = store.updateGang(guild.id, gang.id, {
+    status: nieuw.key,
+    statusChangedAt: Date.now(),
+    statusChangedBy: asActorId(opts?.actorId),
+  });
+  if (!updated) {
+    return { ok: false, error: `${gang.name} staat niet meer in de opslag. Voer \`/gang lijst\` uit en probeer het opnieuw.` };
+  }
+
+  const omhoog = nieuw.rank > vorige.rank;
+  const waarschuwing = omhoog ? await postStatusPromotion(guild, updated, vorige, nieuw) : null;
+  return { ok: true, gang: updated, vorige, nieuw, omhoog, waarschuwing };
+}
+
+// ---------------------------------------------------------------------------
 // Publieke API
 // ---------------------------------------------------------------------------
 
@@ -3030,6 +3128,7 @@ module.exports = {
   deleteGang,
   renameGang,
   repairGang,
+  setGangStatus,
   syncSharedCategories,
   applyCategoryPermissions,
   // De schrijfrechten van #aangenomen en #ontslagen. Discord houdt een fout bericht daarmee

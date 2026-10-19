@@ -3,6 +3,10 @@
 // server dat telkens bijgewerkt wordt, plus een lus die dat periodiek voor alle
 // servers doet.
 //
+// Het statusoverzicht (welke gangs officieel, verified of onofficieel zijn) werkt precies
+// zo, in een eigen kanaal met een eigen bericht. Beide staan in BOARDS en delen alle code
+// hieronder; alleen de kanaal- en berichtvelden en de embed verschillen.
+//
 // Net als logService faalt deze module stil: hij gooit nooit, maar geeft
 // { ok: false, error } terug met een concrete Nederlandse melding.
 
@@ -12,7 +16,7 @@ const logger = require('../lib/logger');
 const store = require('../store');
 const { countGang } = require('../lib/capacity');
 const { ensureMemberCache } = require('../lib/memberCache');
-const { dashboardEmbed } = require('../lib/embeds');
+const { dashboardEmbed, statusOverviewEmbed } = require('../lib/embeds');
 
 /** Standaardinterval van de lus: elke 5 minuten. */
 const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
@@ -28,11 +32,32 @@ const SEND_PERMISSIONS = [
 ];
 
 /**
- * Lopende updates per server-id. Zo kunnen twee gelijktijdige events (bijvoorbeeld
+ * Lopende updates per server-id en bord. Zo kunnen twee gelijktijdige events (bijvoorbeeld
  * een aanname en de periodieke lus) nooit twee dashboardberichten tegelijk posten.
  * @type {Map<string, Promise<*>>}
  */
 const queues = new Map();
+
+/**
+ * De berichten die de bot zelf bijhoudt. `channelKey` en `messageKey` zijn velden uit de
+ * serverconfiguratie, `label` en `setup` komen in de foutmeldingen terecht.
+ */
+const BOARDS = {
+  dashboard: {
+    channelKey: 'dashboardChannelId',
+    messageKey: 'dashboardMessageId',
+    label: 'dashboardkanaal',
+    setup: '/setup dashboard',
+    build: (guild, gangs) => dashboardEmbed(gangs, buildCounts(guild, gangs), Date.now()),
+  },
+  status: {
+    channelKey: 'statusChannelId',
+    messageKey: 'statusMessageId',
+    label: 'statuskanaal',
+    setup: '/setup statuskanaal',
+    build: (guild, gangs) => statusOverviewEmbed(gangs),
+  },
+};
 
 /* -------------------------------------------------------------------------- */
 /* Interne helpers                                                            */
@@ -92,22 +117,23 @@ async function getMe(guild) {
 }
 
 /**
- * Zoekt het dashboardkanaal op en controleert of de bot er een embed mag posten.
+ * Zoekt het kanaal van een bord op en controleert of de bot er een embed mag posten.
  * @param {import('discord.js').Guild} guild De server.
  * @param {string} channelId Het ingestelde kanaal-id.
+ * @param {object} board Een item uit BOARDS.
  * @returns {Promise<{channel: import('discord.js').GuildTextBasedChannel|null, error: string|null}>} Kanaal of foutmelding.
  */
-async function resolveDashboardChannel(guild, channelId) {
+async function resolveBoardChannel(guild, channelId, board) {
   let channel = (guild.channels && guild.channels.cache && guild.channels.cache.get(channelId)) || null;
   if (!channel) {
     try {
       channel = await guild.channels.fetch(channelId);
     } catch (err) {
-      return { channel: null, error: 'Het dashboardkanaal bestaat niet meer. Stel het opnieuw in met `/setup dashboard`.' };
+      return { channel: null, error: `Het ${board.label} bestaat niet meer. Stel het opnieuw in met \`${board.setup}\`.` };
     }
   }
   if (!channel || typeof channel.isTextBased !== 'function' || !channel.isTextBased()) {
-    return { channel: null, error: 'Het ingestelde dashboardkanaal is geen tekstkanaal. Kies een tekstkanaal met `/setup dashboard`.' };
+    return { channel: null, error: `Het ingestelde ${board.label} is geen tekstkanaal. Kies een tekstkanaal met \`${board.setup}\`.` };
   }
 
   const me = await getMe(guild);
@@ -159,60 +185,86 @@ async function editExisting(channel, messageId, embed) {
     if (!message || message.editable === false) return null;
     return await message.edit({ embeds: [embed], components: [] });
   } catch (err) {
-    logger.debug(`Dashboardbericht ${messageId} kon niet bewerkt worden (${reason(err)}); er komt een nieuw bericht.`);
+    logger.debug(`Bericht ${messageId} kon niet bewerkt worden (${reason(err)}); er komt een nieuw bericht.`);
     return null;
   }
 }
 
 /**
- * Slaat een nieuw dashboardbericht-id op als het afwijkt van wat er in de store staat.
+ * Slaat een nieuw bericht-id op als het afwijkt van wat er in de store staat.
  * @param {string} guildId Server-id.
+ * @param {object} board Een item uit BOARDS.
  * @param {string|null} currentId Het opgeslagen id.
  * @param {string} newId Het nieuwe id.
  * @returns {void}
  */
-function rememberMessageId(guildId, currentId, newId) {
+function rememberMessageId(guildId, board, currentId, newId) {
   if (currentId === newId) return;
   try {
-    store.setGuildConfig(guildId, { dashboardMessageId: newId });
+    store.setGuildConfig(guildId, { [board.messageKey]: newId });
   } catch (err) {
-    logger.warn(`Kon het dashboardbericht-id niet opslaan voor server ${guildId}: ${reason(err)}`);
+    logger.warn(`Kon het bericht-id van het ${board.label} niet opslaan voor server ${guildId}: ${reason(err)}`);
   }
 }
 
 /**
- * De daadwerkelijke update; wordt via enqueue() per server geserialiseerd.
+ * De daadwerkelijke update; wordt via enqueue() per server en bord geserialiseerd.
  * @param {import('discord.js').Guild} guild De server.
+ * @param {object} board Een item uit BOARDS.
  * @returns {Promise<{ok: boolean, error?: string}>} Resultaat.
  */
-async function runUpdate(guild) {
+async function runUpdate(guild, board) {
   let config;
   try {
     config = store.getGuildConfig(guild.id);
   } catch (err) {
     return { ok: false, error: `De serverconfiguratie kon niet gelezen worden: ${reason(err)}` };
   }
-  if (!config || !config.dashboardChannelId) {
-    return { ok: false, error: 'Er is nog geen dashboardkanaal ingesteld. Gebruik `/setup dashboard`.' };
+  const channelId = config ? config[board.channelKey] : null;
+  const messageId = config ? config[board.messageKey] : null;
+  if (!channelId) {
+    return { ok: false, error: `Er is nog geen ${board.label} ingesteld. Gebruik \`${board.setup}\`.` };
   }
 
-  const { channel, error } = await resolveDashboardChannel(guild, config.dashboardChannelId);
+  const { channel, error } = await resolveBoardChannel(guild, channelId, board);
   if (!channel) return { ok: false, error };
 
   const gangs = store.listGangs(guild.id) || [];
-  const embed = dashboardEmbed(gangs, buildCounts(guild, gangs), Date.now());
+  const embed = board.build(guild, gangs);
 
-  const edited = await editExisting(channel, config.dashboardMessageId, embed);
+  const edited = await editExisting(channel, messageId, embed);
   if (edited) return { ok: true };
 
   try {
     const posted = await channel.send({ embeds: [embed] });
-    rememberMessageId(guild.id, config.dashboardMessageId, posted.id);
-    logger.debug(`Nieuw dashboardbericht geplaatst in #${channel.name || channel.id}.`);
+    rememberMessageId(guild.id, board, messageId, posted.id);
+    logger.debug(`Nieuw bericht geplaatst in het ${board.label} #${channel.name || channel.id}.`);
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: `Het dashboardbericht kon niet geplaatst worden: ${reason(err)}` };
+    return { ok: false, error: `Het bericht in het ${board.label} kon niet geplaatst worden: ${reason(err)}` };
   }
+}
+
+/**
+ * Werkt één bord bij, achter eventuele lopende updates van datzelfde bord aan. Gooit nooit.
+ * @param {import('discord.js').Guild} guild De server.
+ * @param {'dashboard'|'status'} boardName Sleutel uit BOARDS.
+ * @returns {Promise<{ok: boolean, error?: string}>} Resultaat.
+ */
+function updateBoard(guild, boardName) {
+  const board = BOARDS[boardName];
+  if (!guild || !guild.id || !board) {
+    return Promise.resolve({ ok: false, error: `Geen geldige server of bord meegegeven (${boardName}).` });
+  }
+
+  return enqueue(`${guild.id}:${boardName}`, async () => {
+    try {
+      return await runUpdate(guild, board);
+    } catch (err) {
+      logger.error(`Het ${board.label} van ${describeGuild(guild)} kon niet bijgewerkt worden`, err);
+      return { ok: false, error: `Het ${board.label} kon niet bijgewerkt worden: ${reason(err)}` };
+    }
+  });
 }
 
 /**
@@ -238,6 +290,11 @@ async function updateAllGuilds(client) {
       const result = await updateDashboard(guild);
       if (!result.ok && result.error) {
         logger.debug(`Dashboard ${describeGuild(guild)}: ${result.error}`);
+      }
+      // Ook het statusoverzicht, zodat een weggegooid statusbericht vanzelf terugkomt.
+      const status = await updateStatusOverview(guild);
+      if (!status.ok && status.error) {
+        logger.debug(`Statusoverzicht ${describeGuild(guild)}: ${status.error}`);
       }
     } catch (err) {
       logger.error(`Onverwachte fout bij het dashboard van ${describeGuild(guild)}`, err);
@@ -273,18 +330,19 @@ function normalizeInterval(value) {
  * @returns {Promise<{ok: boolean, error?: string}>} ok:true bij succes, anders een NL-melding.
  */
 async function updateDashboard(guild) {
-  if (!guild || !guild.id) {
-    return { ok: false, error: 'Geen geldige server meegegeven aan updateDashboard.' };
-  }
+  return updateBoard(guild, 'dashboard');
+}
 
-  return enqueue(guild.id, async () => {
-    try {
-      return await runUpdate(guild);
-    } catch (err) {
-      logger.error(`Dashboard van ${describeGuild(guild)} kon niet bijgewerkt worden`, err);
-      return { ok: false, error: `Het dashboard kon niet bijgewerkt worden: ${reason(err)}` };
-    }
-  });
+/**
+ * Maakt of bewerkt het statusoverzicht in het statuskanaal (`/setup statuskanaal`): welke
+ * gangs officieel, verified en onofficieel zijn. Werkt verder net als updateDashboard.
+ * Gooit nooit.
+ *
+ * @param {import('discord.js').Guild} guild De server.
+ * @returns {Promise<{ok: boolean, error?: string}>} ok:true bij succes, anders een NL-melding.
+ */
+async function updateStatusOverview(guild) {
+  return updateBoard(guild, 'status');
 }
 
 /**
@@ -332,4 +390,4 @@ function startDashboardLoop(client, intervalMs = DEFAULT_INTERVAL_MS) {
   return timer;
 }
 
-module.exports = { updateDashboard, startDashboardLoop };
+module.exports = { updateDashboard, updateStatusOverview, startDashboardLoop };

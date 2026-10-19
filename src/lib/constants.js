@@ -41,6 +41,34 @@ const DEFAULT_BOSS_LIMIT = 2;
 /** Standaard aantal underbosses per gang. */
 const DEFAULT_UNDERBOSS_LIMIT = 2;
 
+/**
+ * De statusniveaus van een gang, van laag naar hoog. OWC zet een gang met de hand op een
+ * niveau (`/gangbeheer status`); de bot berekent zelf niets. `rank` bepaalt of een wijziging
+ * een stap omhoog is: alleen dan komt er een felicitatie in de mededelingen van de gang.
+ *
+ * Een niveau toevoegen of hernoemen? Doe het hier. `key` is wat er in data/owc.json staat,
+ * dus wijzig een bestaande key niet zonder de opgeslagen gangs mee te nemen.
+ * @type {ReadonlyArray<{key: string, label: string, emoji: string, rank: number}>}
+ */
+const GANG_STATUSES = [
+  { key: 'onofficieel', label: 'Onofficieel', emoji: '⚪', rank: 0 },
+  { key: 'verified', label: 'Verified', emoji: '☑️', rank: 1 },
+  { key: 'officieel', label: 'Officieel', emoji: '⭐', rank: 2 },
+];
+
+/** Status van een nieuwe gang, en van elke gang die nog van voor de statussen stamt. */
+const DEFAULT_GANG_STATUS = 'onofficieel';
+
+/**
+ * Zoekt een statusniveau op zijn key.
+ *
+ * @param {string} key Bijvoorbeeld 'verified'.
+ * @returns {{key: string, label: string, emoji: string, rank: number}|null} Het niveau, of null.
+ */
+function getGangStatus(key) {
+  return GANG_STATUSES.find((status) => status.key === key) || null;
+}
+
 /** Embedkleuren. */
 const COLORS = {
   success: 0x2ecc71,
@@ -516,6 +544,7 @@ deepFreeze(ROLE_KIND);
 deepFreeze(BUTTON);
 deepFreeze(ROLE_COLORS);
 deepFreeze(ROLE_SUFFIX);
+deepFreeze(GANG_STATUSES);
 
 module.exports = {
   CHANNEL_BLUEPRINT,
@@ -524,6 +553,9 @@ module.exports = {
   DEFAULT_MEMBER_LIMIT,
   DEFAULT_BOSS_LIMIT,
   DEFAULT_UNDERBOSS_LIMIT,
+  GANG_STATUSES,
+  DEFAULT_GANG_STATUS,
+  getGangStatus,
   COLORS,
   ACTION,
   REHIRE_COOLDOWN_MS,
